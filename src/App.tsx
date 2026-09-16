@@ -89,6 +89,7 @@ import {
   acceptInvitation,
   revokeInvitation,
   confirmMemberJoin,
+  removeMemberFromCompany,
 } from './utils/company';
 import {
   calculateSummary,
@@ -617,6 +618,22 @@ function AppContent() {
     if (local) setCompany(local);
     setInvitations(getAllStoredInvitations());
     showInfo('Team status up to date.');
+  };
+
+  const handleRemoveMember = async (memberUserIdOrEmail: string) => {
+    if (!company || !currentUser) return;
+    const res = removeMemberFromCompany(company.id, memberUserIdOrEmail, currentUser.id);
+    if (res.success && res.company) {
+      setCompany(res.company);
+      const updatedInv = getAllStoredInvitations();
+      setInvitations(updatedInv);
+      if (isAppwriteConfigured(settings.appwrite)) {
+        await saveCompanyToAppwrite(settings.appwrite, res.company, updatedInv);
+      }
+      showSuccess('Member removed from organization.');
+    } else {
+      showError(res.error || 'Failed to remove member.');
+    }
   };
 
   const handleUpdateCompany = (updatedCompany: CompanyProfile) => {
@@ -1419,6 +1436,7 @@ function AppContent() {
           onRevokeInvite={handleRevokeInvite}
           onConfirmMember={handleConfirmMember}
           onRefreshSync={handleRefreshTeamSync}
+          onRemoveMember={handleRemoveMember}
           invitations={invitations}
         />
 

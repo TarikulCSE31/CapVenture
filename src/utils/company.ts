@@ -416,3 +416,60 @@ export function getShareableInviteLink(token: string): string {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
   return `${origin}${pathname}?invite=${encodeURIComponent(token)}`;
 }
+
+/**
+ * Remove a user from the organization (Owner only)
+ */
+export function removeMemberFromCompany(
+  companyId: string,
+  memberUserIdOrEmail: string,
+  requesterUserId: string
+): { success: boolean; company?: CompanyProfile; error?: string } {
+  const company = getStoredCompany(companyId);
+  if (!company) {
+    return { success: false, error: 'Organization not found.' };
+  }
+
+  // Enforce: Owner only can remove members
+  if (company.ownerId !== requesterUserId) {
+    return { success: false, error: 'Only the organization owner can remove members.' };
+  }
+
+  const normalizedIdentifier = memberUserIdOrEmail.trim().toLowerCase();
+
+  // Find member
+  const member = company.members.find(
+    (m) =>
+      m.userId === memberUserIdOrEmail ||
+      m.email.toLowerCase() === normalizedIdentifier
+  );
+
+  if (!member) {
+    return { success: false, error: 'Member not found in organization.' };
+  }
+
+  // Prevent owner from removing themselves or another owner
+  if (member.userId === company.ownerId || member.companyRole === 'OWNER') {
+    return { success: false, error: 'The organization owner cannot be removed.' };
+  }
+
+  // Filter out member
+  company.members = company.members.filter(
+    (m) =>
+      m.userId !== member.userId &&
+      m.email.toLowerCase() !== member.email.toLowerCase()
+  );
+  saveStoredCompany(company);
+
+  // Also revoke any invitations for this email
+  const allInv = getAllStoredInvitations();
+  const updatedInv = allInv.map((inv) =>
+    inv.companyId === companyId &&
+    inv.invitedEmail.toLowerCase() === member.email.toLowerCase()
+      ? { ...inv, status: 'REVOKED' as const }
+      : inv
+  );
+  saveAllStoredInvitations(updatedInv);
+
+  return { success: true, company };
+}

@@ -37,8 +37,9 @@ import {
   Edit,
   Refresh,
   CheckCircleOutlined,
+  PersonRemoveOutlined,
 } from '@mui/icons-material';
-import { AuthUser, CompanyInvitation, CompanyProfile, CompanyRole, UserRole } from '../types';
+import { AuthUser, CompanyInvitation, CompanyMember, CompanyProfile, CompanyRole, UserRole } from '../types';
 import { getShareableInviteLink } from '../utils/company';
 
 interface TeamModalProps {
@@ -55,6 +56,7 @@ interface TeamModalProps {
   onRevokeInvite: (inviteId: string) => void;
   onConfirmMember?: (inviteId: string) => Promise<void> | void;
   onRefreshSync?: () => Promise<void> | void;
+  onRemoveMember?: (memberUserIdOrEmail: string) => Promise<void> | void;
   invitations: CompanyInvitation[];
 }
 
@@ -68,9 +70,12 @@ export const TeamModal: React.FC<TeamModalProps> = ({
   onRevokeInvite,
   onConfirmMember,
   onRefreshSync,
+  onRemoveMember,
   invitations,
 }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<CompanyMember | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [targetRole, setTargetRole] = useState<UserRole>('INVESTOR');
   const [companyRole, setCompanyRole] = useState<CompanyRole>('MEMBER');
@@ -144,8 +149,14 @@ export const TeamModal: React.FC<TeamModalProps> = ({
     company.ownerId === currentUser.id ||
     company.members.some((m) => (m.userId === currentUser.id || m.email === currentUser.email) && ['OWNER', 'ADMIN'].includes(m.companyRole))
   );
+  const isCompanyOwner = currentUser && company && (
+    company.ownerId === currentUser.id ||
+    currentUser.companyRole === 'OWNER' ||
+    company.members.some((m) => (m.userId === currentUser.id || m.email === currentUser.email) && m.companyRole === 'OWNER')
+  );
 
   return (
+    <>
     <Dialog
       open={isOpen}
       onClose={onClose}
@@ -454,9 +465,25 @@ export const TeamModal: React.FC<TeamModalProps> = ({
                         {isCurrentUser && (
                           <Chip label="You" size="small" color="secondary" sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700 }} />
                         )}
+                        {isCompanyOwner && !isCurrentUser && !isOwner && onRemoveMember && (
+                          <Tooltip title="Remove member from organization (Owner only)">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => setMemberToRemove(member)}
+                              sx={{ ml: 0.25 }}
+                            >
+                              <PersonRemoveOutlined fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                       </Box>
                     }
-                    sx={{ py: 1.2, px: 2 }}
+                    sx={{
+                      py: 1.2,
+                      px: 2,
+                      pr: isCompanyOwner && !isCurrentUser && !isOwner ? { xs: 17, sm: 18 } : { xs: 12, sm: 14 },
+                    }}
                   >
                     <ListItemAvatar sx={{ minWidth: 44 }}>
                       <Avatar sx={{ width: 34, height: 34, fontSize: '0.85rem', bgcolor: isOwner ? 'primary.main' : 'grey.600' }}>
@@ -582,5 +609,53 @@ export const TeamModal: React.FC<TeamModalProps> = ({
         </Button>
       </DialogActions>
     </Dialog>
+
+    {/* Confirm Remove Member Dialog (Owner Only) */}
+    <Dialog
+      open={Boolean(memberToRemove)}
+      onClose={() => !isRemoving && setMemberToRemove(null)}
+      maxWidth="xs"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: { borderRadius: 2.5, p: 1 },
+        },
+      }}
+    >
+      <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>
+        Remove Member from Organization?
+      </DialogTitle>
+      <DialogContent>
+        <Typography variant="body2">
+          Are you sure you want to remove <strong>{memberToRemove?.name || memberToRemove?.email}</strong> from <strong>{company?.name}</strong>?
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+          They will immediately lose access to all company records, portfolios, transactions, and reports.
+        </Typography>
+      </DialogContent>
+      <DialogActions sx={{ p: 2, pt: 1 }}>
+        <Button onClick={() => setMemberToRemove(null)} color="inherit" disabled={isRemoving}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="error"
+          disabled={isRemoving}
+          onClick={async () => {
+            if (!memberToRemove || !onRemoveMember) return;
+            setIsRemoving(true);
+            try {
+              await onRemoveMember(memberToRemove.userId || memberToRemove.email);
+              setMemberToRemove(null);
+            } finally {
+              setIsRemoving(false);
+            }
+          }}
+        >
+          {isRemoving ? 'Removing...' : 'Remove Member'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+    </>
   );
 };
