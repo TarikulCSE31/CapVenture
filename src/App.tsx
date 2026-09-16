@@ -17,6 +17,7 @@ import {
   ListItemAvatar,
   ListItemText,
   Divider,
+  CircularProgress,
 } from '@mui/material';
 import {
   CallMade,
@@ -37,6 +38,7 @@ import { TransactionModal } from './components/TransactionModal';
 import { PartnerModal } from './components/PartnerModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AuthModal } from './components/AuthModal';
+import { AuthPage } from './components/AuthPage';
 import {
   Partner,
   Transaction,
@@ -77,6 +79,7 @@ import { getAppTheme } from './theme';
 export default function App() {
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('dark');
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -96,37 +99,47 @@ export default function App() {
   }, []);
 
   const loadAllData = async () => {
-    const loadedPartners = getStoredPartners();
-    const loadedTransactions = getStoredTransactions();
     const loadedSettings = getStoredSettings();
-    setPartners(loadedPartners);
-    setTransactions(loadedTransactions);
     setSettings(loadedSettings);
     if (loadedSettings.theme) {
       setThemeMode(loadedSettings.theme);
     }
 
-    if (isAppwriteConfigured(loadedSettings.appwrite)) {
-      try {
-        const [remotePartners, remoteTransactions, user] = await Promise.all([
-          fetchPartnersFromAppwrite(loadedSettings.appwrite),
-          fetchTransactionsFromAppwrite(loadedSettings.appwrite),
-          getCurrentAppwriteUser(loadedSettings.appwrite),
-        ]);
+    try {
+      if (isAppwriteConfigured(loadedSettings.appwrite)) {
+        const user = await getCurrentAppwriteUser(loadedSettings.appwrite);
         if (user) {
           setCurrentUser(user);
+          const [remotePartners, remoteTransactions] = await Promise.all([
+            fetchPartnersFromAppwrite(loadedSettings.appwrite),
+            fetchTransactionsFromAppwrite(loadedSettings.appwrite),
+          ]);
+          if (remotePartners.length > 0) {
+            setPartners(remotePartners);
+            saveStoredPartners(remotePartners);
+          } else {
+            setPartners(getStoredPartners());
+          }
+          if (remoteTransactions.length > 0) {
+            setTransactions(remoteTransactions);
+            saveStoredTransactions(remoteTransactions);
+          } else {
+            setTransactions(getStoredTransactions());
+          }
+        } else {
+          setCurrentUser(null);
+          setPartners([]);
+          setTransactions([]);
         }
-        if (remotePartners.length > 0) {
-          setPartners(remotePartners);
-          saveStoredPartners(remotePartners);
-        }
-        if (remoteTransactions.length > 0) {
-          setTransactions(remoteTransactions);
-          saveStoredTransactions(remoteTransactions);
-        }
-      } catch (err) {
-        console.warn('Appwrite auto-fetch skipped, using cache:', err);
+      } else {
+        // Appwrite not configured
+        setCurrentUser(null);
       }
+    } catch (err) {
+      console.warn('Session verification error:', err);
+      setCurrentUser(null);
+    } finally {
+      setIsCheckingAuth(false);
     }
   };
 
@@ -160,6 +173,8 @@ export default function App() {
   const handleLogout = async () => {
     await logoutAppwrite(settings.appwrite);
     setCurrentUser(null);
+    setPartners([]);
+    setTransactions([]);
   };
 
   const toggleTheme = () => {
@@ -300,6 +315,65 @@ export default function App() {
 
   const muiTheme = useMemo(() => getAppTheme(themeMode), [themeMode]);
 
+  // 1. Session verification loading screen
+  if (isCheckingAuth) {
+    return (
+      <ThemeProvider theme={muiTheme}>
+        <CssBaseline />
+        <Box
+          sx={{
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: 'background.default',
+            gap: 2.5,
+          }}
+        >
+          <Box
+            sx={{
+              width: 52,
+              height: 52,
+              borderRadius: 3,
+              bgcolor: 'primary.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              boxShadow: '0 8px 24px rgba(25, 118, 210, 0.35)',
+            }}
+          >
+            <TrendingUp fontSize="medium" />
+          </Box>
+          <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
+            CapVenture
+          </Typography>
+          <CircularProgress size={28} thickness={4} />
+          <Typography variant="caption" color="text.secondary">
+            Verifying security session...
+          </Typography>
+        </Box>
+      </ThemeProvider>
+    );
+  }
+
+  // 2. Unauthenticated: Only display Auth Page
+  if (!currentUser) {
+    return (
+      <ThemeProvider theme={muiTheme}>
+        <CssBaseline />
+        <AuthPage
+          onLogin={handleLogin}
+          onSignup={handleSignup}
+          themeMode={themeMode}
+          onToggleTheme={toggleTheme}
+        />
+      </ThemeProvider>
+    );
+  }
+
+  // 3. Authenticated: Full Application Access
   return (
     <ThemeProvider theme={muiTheme}>
       <CssBaseline />
