@@ -35,6 +35,8 @@ import {
   BusinessOutlined,
   EmailOutlined,
   Edit,
+  Refresh,
+  CheckCircleOutlined,
 } from '@mui/icons-material';
 import { AuthUser, CompanyInvitation, CompanyProfile, CompanyRole, UserRole } from '../types';
 import { getShareableInviteLink } from '../utils/company';
@@ -51,6 +53,8 @@ interface TeamModalProps {
     companyRole: CompanyRole
   ) => Promise<{ success: boolean; invite?: CompanyInvitation; error?: string }>;
   onRevokeInvite: (inviteId: string) => void;
+  onConfirmMember?: (inviteId: string) => Promise<void> | void;
+  onRefreshSync?: () => Promise<void> | void;
   invitations: CompanyInvitation[];
 }
 
@@ -62,8 +66,11 @@ export const TeamModal: React.FC<TeamModalProps> = ({
   onUpdateCompany,
   onSendInvite,
   onRevokeInvite,
+  onConfirmMember,
+  onRefreshSync,
   invitations,
 }) => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [targetRole, setTargetRole] = useState<UserRole>('INVESTOR');
   const [companyRole, setCompanyRole] = useState<CompanyRole>('MEMBER');
@@ -115,7 +122,24 @@ export const TeamModal: React.FC<TeamModalProps> = ({
     }, 2500);
   };
 
-  const companyInvitations = invitations.filter((inv) => inv.companyId === company?.id && inv.status === 'PENDING');
+  const handleRefreshClick = async () => {
+    if (!onRefreshSync) return;
+    setIsRefreshing(true);
+    try {
+      await onRefreshSync();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const companyInvitations = invitations.filter(
+    (inv) =>
+      inv.companyId === company?.id &&
+      inv.status === 'PENDING' &&
+      !company?.members.some(
+        (m) => m.email.trim().toLowerCase() === inv.invitedEmail.trim().toLowerCase()
+      )
+  );
   const isOwnerOrAdmin = currentUser && company && (
     company.ownerId === currentUser.id ||
     company.members.some((m) => (m.userId === currentUser.id || m.email === currentUser.email) && ['OWNER', 'ADMIN'].includes(m.companyRole))
@@ -127,13 +151,16 @@ export const TeamModal: React.FC<TeamModalProps> = ({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      scroll="paper"
       slotProps={{
         paper: {
           sx: {
             m: { xs: 1, sm: 2 },
             width: { xs: 'calc(100% - 16px)', sm: 'auto' },
-            maxHeight: { xs: 'calc(100% - 16px)', sm: 'calc(100% - 64px)' },
+            maxHeight: { xs: 'calc(100% - 24px)', sm: '88vh' },
             borderRadius: { xs: 2.5, sm: 3 },
+            display: 'flex',
+            flexDirection: 'column',
           },
         },
       }}
@@ -152,12 +179,41 @@ export const TeamModal: React.FC<TeamModalProps> = ({
             </Typography>
           </Box>
         </Box>
-        <IconButton onClick={onClose} size="small">
-          <Close fontSize="small" />
-        </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {onRefreshSync && (
+            <Tooltip title="Sync / Refresh Team">
+              <span>
+                <IconButton onClick={handleRefreshClick} size="small" disabled={isRefreshing}>
+                  <Refresh
+                    fontSize="small"
+                    sx={{
+                      animation: isRefreshing ? 'spin 1s linear infinite' : 'none',
+                      '@keyframes spin': {
+                        '0%': { transform: 'rotate(0deg)' },
+                        '100%': { transform: 'rotate(360deg)' },
+                      },
+                    }}
+                  />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
+          <IconButton onClick={onClose} size="small">
+            <Close fontSize="small" />
+          </IconButton>
+        </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ p: { xs: 2, sm: 2.5 }, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+      <DialogContent
+        dividers
+        sx={{
+          p: { xs: 2, sm: 2.5 },
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2.5,
+          overflowY: 'auto',
+        }}
+      >
         {/* Company Identity Header */}
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
@@ -411,7 +467,30 @@ export const TeamModal: React.FC<TeamModalProps> = ({
                   {idx > 0 && <Divider />}
                   <ListItem
                     secondaryAction={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        {isOwnerOrAdmin && onConfirmMember && (
+                          <Tooltip title="Confirm user has joined - Add to Active Organization Members">
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
+                              startIcon={<CheckCircleOutlined sx={{ fontSize: '0.95rem !important' }} />}
+                              onClick={() => onConfirmMember(inv.id)}
+                              sx={{
+                                textTransform: 'none',
+                                fontSize: '0.725rem',
+                                fontWeight: 700,
+                                py: 0.3,
+                                px: 1.2,
+                                minWidth: 0,
+                                borderRadius: 1.5,
+                                boxShadow: 'none',
+                              }}
+                            >
+                              Approve
+                            </Button>
+                          </Tooltip>
+                        )}
                         <Tooltip title="Copy Invite Link">
                           <IconButton size="small" onClick={() => handleCopyLink(inv.token)}>
                             {copiedToken === inv.token ? <Check fontSize="small" color="success" /> : <ContentCopy fontSize="small" />}
@@ -426,7 +505,11 @@ export const TeamModal: React.FC<TeamModalProps> = ({
                         )}
                       </Box>
                     }
-                    sx={{ py: 1.2, px: 2 }}
+                    sx={{
+                      py: 1.5,
+                      px: 2,
+                      pr: { xs: 20, sm: 22 },
+                    }}
                   >
                     <ListItemAvatar sx={{ minWidth: 44 }}>
                       <Avatar sx={{ width: 34, height: 34, fontSize: '0.85rem', bgcolor: 'warning.main' }}>

@@ -1,5 +1,5 @@
 import { Client, Databases, Account, ID, Query } from 'appwrite';
-import { AppwriteConfig, AuthUser, CompanyRole, Partner, Transaction, UserRole } from '../types';
+import { AppwriteConfig, AuthUser, CompanyInvitation, CompanyProfile, CompanyRole, Partner, Transaction, UserRole } from '../types';
 
 let cachedClient: Client | null = null;
 let cachedEndpoint = '';
@@ -237,15 +237,17 @@ export async function fetchPartnersFromAppwrite(config: AppwriteConfig): Promise
     [Query.limit(100)]
   );
 
-  return response.documents.map((doc: any) => ({
-    id: doc.$id,
-    name: doc.name || '',
-    phone: doc.phone || undefined,
-    email: doc.email || undefined,
-    notes: doc.notes || undefined,
-    avatarColor: doc.avatarColor || '#10b981',
-    createdAt: doc.$createdAt || new Date().toISOString(),
-  }));
+  return response.documents
+    .filter((doc: any) => !doc.$id.startsWith('co_'))
+    .map((doc: any) => ({
+      id: doc.$id,
+      name: doc.name || '',
+      phone: doc.phone || undefined,
+      email: doc.email || undefined,
+      notes: doc.notes || undefined,
+      avatarColor: doc.avatarColor || '#10b981',
+      createdAt: doc.$createdAt || new Date().toISOString(),
+    }));
 }
 
 /**
@@ -417,3 +419,137 @@ export async function syncLocalToAppwrite(
     return { success: false, error: err.message || 'Sync failed' };
   }
 }
+
+/**
+ * Sanitize company ID to fit Appwrite document ID requirements (max 36 chars, alphanumeric/dash/underscore, starts with a-z)
+ */
+export function getCompanyDocId(companyId: string): string {
+  const clean = companyId.replace(/[^a-zA-Z0-9_]/g, '_');
+  const docId = clean.startsWith('comp_') ? clean.replace(/^comp_/, 'co_') : `co_${clean}`;
+  return docId.substring(0, 36);
+}
+
+/**
+ * Save Company Profile & Invitations to Appwrite
+ */
+export async function saveCompanyToAppwrite(
+  config: AppwriteConfig,
+  company: CompanyProfile,
+  invitations: CompanyInvitation[]
+): Promise<void> {
+  if (!isAppwriteConfigured(config)) return;
+  const databases = getDatabases(config);
+  const docId = getCompanyDocId(company.id);
+
+  const payload = {
+    name: `[ORG] ${company.name}`.substring(0, 100),
+    phone: '',
+    email: company.ownerEmail || '',
+    notes: JSON.stringify({ company, invitations }),
+    avatarColor: '#10b981',
+  };
+
+  try {
+    await databases.updateDocument(
+      config.databaseId,
+      config.partnersCollectionId,
+      docId,
+      payload
+    );
+  } catch (updateErr: any) {
+    if (updateErr.code === 404 || updateErr.message?.includes('not found')) {
+      try {
+        await databases.createDocument(
+          config.databaseId,
+          config.partnersCollectionId,
+          docId,
+          payload
+        );
+      } catch (createErr) {
+        console.warn('Could not create company doc in Appwrite:', createErr);
+      }
+    } else {
+      console.warn('Could not update company doc in Appwrite:', updateErr);
+    }
+  }
+}
+
+/**
+ * Fetch Company Profile & Invitations from Appwrite
+ */
+export async function fetchCompanyFromAppwrite(
+  config: AppwriteConfig,
+  companyId: string
+): Promise<{ company: CompanyProfile; invitations: CompanyInvitation[] } | null> {
+  if (!isAppwriteConfigured(config)) return null;
+  const databases = getDatabases(config);
+  const docId = getCompanyDocId(companyId);
+
+  try {
+    const doc = await databases.getDocument(
+      config.databaseId,
+      config.partnersCollectionId,
+      docId
+    );
+    if (doc.notes) {
+      const parsed = JSON.parse(doc.notes);
+      if (parsed.company) {
+        return {
+          company: parsed.company,
+          invitations: Array.isArray(parsed.invitations) ? parsed.invitations : [],
+        };
+      }
+    }
+  } catch (err: any) {
+    if (err.code !== 404 && !err.message?.includes('not found')) {
+      console.warn('Could not fetch company doc from Appwrite:', err);
+    }
+  }
+  return null;
+}
+
+/**
+ * Scan all companies in Appwrite to find a pending invitation for a specific email
+ */
+export async function findPendingInvitationInAppwrite(
+  config: AppwriteConfig,
+  email: string
+): Promise<{ company: CompanyProfile; invitation: CompanyInvitation } | null> {
+  if (!isAppwriteConfigured(config) || !email) return null;
+  const databases = getDatabases(config);
+  const normalizedEmail = email.trim().toLowerCase();
+
+  try {
+    const response = await databases.listDocuments(
+      config.databaseId,
+      config.partnersCollectionId,
+      [Query.limit(100)]
+    );
+
+    for (const doc of response.documents) {
+      if (doc.$id.startsWith('co_') && doc.notes) {
+        try {
+          const parsed = JSON.parse(doc.notes);
+          if (parsed.company && Array.isArray(parsed.invitations)) {
+            const foundInvite = parsed.invitations.find(
+              (inv: CompanyInvitation) =>
+                inv.invitedEmail.trim().toLowerCase() === normalizedEmail && inv.status === 'PENDING'
+            );
+            if (foundInvite) {
+              return {
+                company: parsed.company,
+                invitation: foundInvite,
+              };
+            }
+          }
+        } catch {
+          // ignore non-json notes
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Error querying Appwrite for pending invitations:', err);
+  }
+  return null;
+}
+

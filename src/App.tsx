@@ -79,13 +79,16 @@ import {
 } from './utils/storage';
 import {
   getOrCreateUserCompany,
+  getStoredCompany,
   saveStoredCompany,
   createInvitation,
   getAllStoredInvitations,
+  saveAllStoredInvitations,
   findInvitationByToken,
   findPendingInvitationForEmail,
   acceptInvitation,
   revokeInvitation,
+  confirmMemberJoin,
 } from './utils/company';
 import {
   calculateSummary,
@@ -111,12 +114,15 @@ import {
   logoutAppwrite,
   fetchUserPreferences,
   saveUserPreferences,
+  saveCompanyToAppwrite,
+  fetchCompanyFromAppwrite,
+  findPendingInvitationInAppwrite,
 } from './utils/appwrite';
 import { getAppTheme } from './theme';
 import { ToastProvider, useToast } from './context/ToastContext';
 
 function AppContent() {
-  const { showSuccess, showInfo, showWarning } = useToast();
+  const { showSuccess, showError, showInfo, showWarning } = useToast();
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('dark');
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -192,7 +198,36 @@ function AppContent() {
       if (isAppwriteConfigured(loadedSettings.appwrite)) {
         const user = await getCurrentAppwriteUser(loadedSettings.appwrite);
         if (user) {
-          const userCompany = getOrCreateUserCompany(user);
+          let userCompany = getOrCreateUserCompany(user);
+          let allInvites = getAllStoredInvitations();
+
+          // Sync company & invitations from Appwrite cloud if available
+          try {
+            const cloudData = await fetchCompanyFromAppwrite(loadedSettings.appwrite, userCompany.id);
+            if (cloudData) {
+              userCompany = {
+                ...userCompany,
+                ...cloudData.company,
+                members: cloudData.company.members || userCompany.members,
+              };
+              saveStoredCompany(userCompany);
+              
+              const merged = [...allInvites];
+              for (const cInv of cloudData.invitations) {
+                const idx = merged.findIndex((i) => i.id === cInv.id);
+                if (idx >= 0) {
+                  merged[idx] = cInv;
+                } else {
+                  merged.push(cInv);
+                }
+              }
+              saveAllStoredInvitations(merged);
+              allInvites = merged;
+            }
+          } catch (cloudErr) {
+            console.warn('Cloud company sync:', cloudErr);
+          }
+
           user.companyId = userCompany.id;
           user.companyName = userCompany.name;
           user.companyRole =
@@ -202,7 +237,7 @@ function AppContent() {
 
           setCurrentUser(user);
           setCompany(userCompany);
-          setInvitations(getAllStoredInvitations());
+          setInvitations(allInvites);
 
           const effectiveWorkspaceId = userCompany.id;
 
@@ -296,7 +331,24 @@ function AppContent() {
     const user = await loginWithAppwrite(settings.appwrite, email, pass);
 
     // Check for pending invitation by email or active URL invite
-    const pendingInvite = activeInvitationForAuth || findPendingInvitationForEmail(email);
+    let pendingInvite = activeInvitationForAuth || findPendingInvitationForEmail(email);
+
+    // If not in local storage, query Appwrite cloud
+    if (!pendingInvite && isAppwriteConfigured(settings.appwrite)) {
+      try {
+        const cloudInviteData = await findPendingInvitationInAppwrite(settings.appwrite, email);
+        if (cloudInviteData) {
+          saveStoredCompany(cloudInviteData.company);
+          const allInv = getAllStoredInvitations();
+          allInv.push(cloudInviteData.invitation);
+          saveAllStoredInvitations(allInv);
+          pendingInvite = cloudInviteData.invitation;
+        }
+      } catch (e) {
+        console.warn('Could not check cloud invites on login:', e);
+      }
+    }
+
     if (pendingInvite) {
       const acceptRes = acceptInvitation(pendingInvite.id, user);
       if (acceptRes.success && acceptRes.company) {
@@ -305,6 +357,9 @@ function AppContent() {
         user.companyRole = pendingInvite.companyRole;
         user.role = pendingInvite.targetRole;
         setCompany(acceptRes.company);
+        if (isAppwriteConfigured(settings.appwrite)) {
+          saveCompanyToAppwrite(settings.appwrite, acceptRes.company, getAllStoredInvitations()).catch(console.error);
+        }
         showSuccess(`Joined ${acceptRes.company.name} with shared access!`);
       }
       setActiveInvitationForAuth(null);
@@ -396,7 +451,24 @@ function AppContent() {
     const user = await signupWithAppwrite(settings.appwrite, name, email, pass, role);
 
     // Check for pending invitation by URL token or matching email
-    const pendingInvite = activeInvitationForAuth || findPendingInvitationForEmail(email);
+    let pendingInvite = activeInvitationForAuth || findPendingInvitationForEmail(email);
+
+    // If not in local storage, query Appwrite cloud
+    if (!pendingInvite && isAppwriteConfigured(settings.appwrite)) {
+      try {
+        const cloudInviteData = await findPendingInvitationInAppwrite(settings.appwrite, email);
+        if (cloudInviteData) {
+          saveStoredCompany(cloudInviteData.company);
+          const allInv = getAllStoredInvitations();
+          allInv.push(cloudInviteData.invitation);
+          saveAllStoredInvitations(allInv);
+          pendingInvite = cloudInviteData.invitation;
+        }
+      } catch (e) {
+        console.warn('Could not check cloud invites on signup:', e);
+      }
+    }
+
     let effectiveRole = role;
 
     if (pendingInvite) {
@@ -408,6 +480,9 @@ function AppContent() {
         effectiveRole = pendingInvite.targetRole;
         user.role = effectiveRole;
         setCompany(acceptRes.company);
+        if (isAppwriteConfigured(settings.appwrite)) {
+          saveCompanyToAppwrite(settings.appwrite, acceptRes.company, getAllStoredInvitations()).catch(console.error);
+        }
         showSuccess(`Welcome to ${acceptRes.company.name}! You now have shared access.`);
       }
       setActiveInvitationForAuth(null);
@@ -483,7 +558,11 @@ function AppContent() {
     }
     try {
       const invite = createInvitation(company, currentUser, inviteEmail, targetRole, companyRole);
-      setInvitations(getAllStoredInvitations());
+      const updatedAll = getAllStoredInvitations();
+      setInvitations(updatedAll);
+      if (isAppwriteConfigured(settings.appwrite)) {
+        saveCompanyToAppwrite(settings.appwrite, company, updatedAll).catch(console.error);
+      }
       showSuccess(`Invitation generated for ${inviteEmail}!`);
       return { success: true, invite };
     } catch (err: any) {
@@ -493,13 +572,59 @@ function AppContent() {
 
   const handleRevokeInvite = (inviteId: string) => {
     revokeInvitation(inviteId);
-    setInvitations(getAllStoredInvitations());
+    const updatedAll = getAllStoredInvitations();
+    setInvitations(updatedAll);
+    if (company && isAppwriteConfigured(settings.appwrite)) {
+      saveCompanyToAppwrite(settings.appwrite, company, updatedAll).catch(console.error);
+    }
     showInfo('Invitation revoked.');
+  };
+
+  const handleConfirmMember = async (inviteId: string) => {
+    if (!company) return;
+    const res = confirmMemberJoin(company.id, inviteId);
+    if (res.success && res.company) {
+      setCompany(res.company);
+      const updatedInv = getAllStoredInvitations();
+      setInvitations(updatedInv);
+      if (isAppwriteConfigured(settings.appwrite)) {
+        await saveCompanyToAppwrite(settings.appwrite, res.company, updatedInv);
+      }
+      showSuccess('Member confirmed and added to active organization!');
+    } else {
+      showError(res.error || 'Failed to confirm member.');
+    }
+  };
+
+  const handleRefreshTeamSync = async () => {
+    if (!company) return;
+    if (isAppwriteConfigured(settings.appwrite)) {
+      try {
+        const cloudData = await fetchCompanyFromAppwrite(settings.appwrite, company.id);
+        if (cloudData) {
+          saveStoredCompany(cloudData.company);
+          setCompany(cloudData.company);
+          saveAllStoredInvitations(cloudData.invitations);
+          setInvitations(cloudData.invitations);
+          showSuccess('Team status refreshed from cloud.');
+          return;
+        }
+      } catch (e) {
+        console.warn('Refresh team sync error:', e);
+      }
+    }
+    const local = getStoredCompany(company.id);
+    if (local) setCompany(local);
+    setInvitations(getAllStoredInvitations());
+    showInfo('Team status up to date.');
   };
 
   const handleUpdateCompany = (updatedCompany: CompanyProfile) => {
     saveStoredCompany(updatedCompany);
     setCompany(updatedCompany);
+    if (isAppwriteConfigured(settings.appwrite)) {
+      saveCompanyToAppwrite(settings.appwrite, updatedCompany, getAllStoredInvitations()).catch(console.error);
+    }
     if (currentUser) {
       const updatedUser: AuthUser = {
         ...currentUser,
@@ -1292,6 +1417,8 @@ function AppContent() {
           onUpdateCompany={handleUpdateCompany}
           onSendInvite={handleSendInvite}
           onRevokeInvite={handleRevokeInvite}
+          onConfirmMember={handleConfirmMember}
+          onRefreshSync={handleRefreshTeamSync}
           invitations={invitations}
         />
 

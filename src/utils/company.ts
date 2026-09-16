@@ -121,6 +121,66 @@ export function getCompanyInvitations(companyId: string): CompanyInvitation[] {
 }
 
 /**
+ * Create a self-contained token that can be decoded on any machine/browser
+ */
+export function encodeInviteToken(data: {
+  id: string;
+  companyId: string;
+  companyName: string;
+  invitedEmail: string;
+  invitedByUserId: string;
+  invitedByName: string;
+  companyRole: CompanyRole;
+  targetRole: UserRole;
+  createdAt: string;
+}): string {
+  try {
+    const json = JSON.stringify(data);
+    const base64 = btoa(unescape(encodeURIComponent(json)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    return `inv_${base64}`;
+  } catch {
+    return `inv_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  }
+}
+
+/**
+ * Decode a self-contained token from URL
+ */
+export function decodeInviteToken(token: string): CompanyInvitation | null {
+  if (!token || !token.startsWith('inv_')) return null;
+  const raw = token.substring(4);
+  try {
+    let base64 = raw.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+    const json = decodeURIComponent(escape(atob(base64)));
+    const parsed = JSON.parse(json);
+    if (parsed.companyId && parsed.invitedEmail) {
+      return {
+        id: parsed.id || `invite_${Date.now()}`,
+        companyId: parsed.companyId,
+        companyName: parsed.companyName || 'Organization',
+        invitedEmail: parsed.invitedEmail.toLowerCase(),
+        invitedByUserId: parsed.invitedByUserId || '',
+        invitedByName: parsed.invitedByName || '',
+        companyRole: parsed.companyRole || 'MEMBER',
+        targetRole: parsed.targetRole || 'INVESTOR',
+        token,
+        status: 'PENDING',
+        createdAt: parsed.createdAt || new Date().toISOString(),
+      };
+    }
+  } catch {
+    // If not base64 encoded token, fallback
+  }
+  return null;
+}
+
+/**
  * Create and save a new company invitation
  */
 export function createInvitation(
@@ -132,11 +192,24 @@ export function createInvitation(
 ): CompanyInvitation {
   const all = getAllStoredInvitations();
   const normalizedEmail = invitedEmail.trim().toLowerCase();
+  const inviteId = `invite_${Date.now()}`;
+  const createdAt = new Date().toISOString();
 
-  // Create unique token and ID
-  const token = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  // Create self-contained token that works cross-device / cross-browser
+  const token = encodeInviteToken({
+    id: inviteId,
+    companyId: company.id,
+    companyName: company.name,
+    invitedEmail: normalizedEmail,
+    invitedByUserId: inviter.id,
+    invitedByName: inviter.name || inviter.email,
+    companyRole,
+    targetRole,
+    createdAt,
+  });
+
   const invitation: CompanyInvitation = {
-    id: `invite_${Date.now()}`,
+    id: inviteId,
     companyId: company.id,
     companyName: company.name,
     invitedEmail: normalizedEmail,
@@ -146,7 +219,7 @@ export function createInvitation(
     targetRole,
     token,
     status: 'PENDING',
-    createdAt: new Date().toISOString(),
+    createdAt,
   };
 
   // Remove any previous pending invite to the same email in this company
@@ -165,7 +238,42 @@ export function createInvitation(
 export function findInvitationByToken(token: string): CompanyInvitation | null {
   if (!token) return null;
   const all = getAllStoredInvitations();
-  return all.find((i) => i.token === token && i.status === 'PENDING') || null;
+  const local = all.find((i) => i.token === token && i.status === 'PENDING');
+  if (local) return local;
+
+  // Try decoding self-contained token (for other browsers / incognito)
+  const decoded = decodeInviteToken(token);
+  if (decoded) {
+    const existing = all.find((i) => i.id === decoded.id || i.token === token);
+    if (!existing) {
+      all.push(decoded);
+      saveAllStoredInvitations(all);
+    }
+    const existingCompany = getStoredCompany(decoded.companyId);
+    if (!existingCompany) {
+      const stubCompany: CompanyProfile = {
+        id: decoded.companyId,
+        name: decoded.companyName,
+        type: decoded.targetRole,
+        ownerId: decoded.invitedByUserId,
+        ownerEmail: '',
+        members: [
+          {
+            userId: decoded.invitedByUserId,
+            name: decoded.invitedByName,
+            email: '',
+            companyRole: 'OWNER',
+            joinedAt: decoded.createdAt,
+          },
+        ],
+        createdAt: decoded.createdAt,
+      };
+      saveStoredCompany(stubCompany);
+    }
+    return decoded;
+  }
+
+  return null;
 }
 
 /**
@@ -186,21 +294,49 @@ export function acceptInvitation(
   user: AuthUser
 ): { success: boolean; company?: CompanyProfile; error?: string } {
   const all = getAllStoredInvitations();
-  const invite = all.find(
+  let invite = all.find(
     (i) => (i.id === invitationIdentifier || i.token === invitationIdentifier) && i.status === 'PENDING'
   );
+
+  // If not found in local storage, try decoding if it is a token
+  if (!invite) {
+    invite = decodeInviteToken(invitationIdentifier) || undefined;
+  }
 
   if (!invite) {
     return { success: false, error: 'Invitation is invalid or has already been accepted.' };
   }
 
-  const company = getStoredCompany(invite.companyId);
+  let company = getStoredCompany(invite.companyId);
   if (!company) {
-    return { success: false, error: 'Target organization or company not found.' };
+    // Create company from invite metadata if missing
+    company = {
+      id: invite.companyId,
+      name: invite.companyName,
+      type: invite.targetRole,
+      ownerId: invite.invitedByUserId,
+      ownerEmail: '',
+      members: [
+        {
+          userId: invite.invitedByUserId,
+          name: invite.invitedByName,
+          email: '',
+          companyRole: 'OWNER',
+          joinedAt: invite.createdAt,
+        },
+      ],
+      createdAt: invite.createdAt,
+    };
   }
 
   // Update invite status
   invite.status = 'ACCEPTED';
+  const existingIdx = all.findIndex((i) => i.id === invite!.id);
+  if (existingIdx >= 0) {
+    all[existingIdx] = invite;
+  } else {
+    all.push(invite);
+  }
   saveAllStoredInvitations(all);
 
   // Add member if not already present
@@ -217,6 +353,46 @@ export function acceptInvitation(
       joinedAt: new Date().toISOString(),
     };
     company.members.push(newMember);
+  }
+  saveStoredCompany(company);
+
+  return { success: true, company };
+}
+
+/**
+ * Directly confirm an invitation and add the invited email as an active member (used by Owner/Admin in UI)
+ */
+export function confirmMemberJoin(
+  companyId: string,
+  invitationId: string,
+  userName?: string
+): { success: boolean; company?: CompanyProfile; error?: string } {
+  const all = getAllStoredInvitations();
+  const invite = all.find((i) => i.id === invitationId && i.companyId === companyId);
+  if (!invite) {
+    return { success: false, error: 'Invitation not found.' };
+  }
+
+  const company = getStoredCompany(companyId);
+  if (!company) {
+    return { success: false, error: 'Company not found.' };
+  }
+
+  invite.status = 'ACCEPTED';
+  saveAllStoredInvitations(all);
+
+  const existingMember = company.members.find(
+    (m) => m.email.toLowerCase() === invite.invitedEmail.toLowerCase()
+  );
+
+  if (!existingMember) {
+    company.members.push({
+      userId: `user_${invite.invitedEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
+      name: userName || invite.invitedEmail.split('@')[0],
+      email: invite.invitedEmail,
+      companyRole: invite.companyRole,
+      joinedAt: new Date().toISOString(),
+    });
     saveStoredCompany(company);
   }
 
