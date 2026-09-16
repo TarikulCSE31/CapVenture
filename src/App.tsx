@@ -47,9 +47,7 @@ import {
   AuthUser,
 } from './types';
 import {
-  getStoredPartners,
   saveStoredPartners,
-  getStoredTransactions,
   saveStoredTransactions,
   getStoredSettings,
   saveStoredSettings,
@@ -114,18 +112,10 @@ export default function App() {
             fetchPartnersFromAppwrite(loadedSettings.appwrite),
             fetchTransactionsFromAppwrite(loadedSettings.appwrite),
           ]);
-          if (remotePartners.length > 0) {
-            setPartners(remotePartners);
-            saveStoredPartners(remotePartners);
-          } else {
-            setPartners(getStoredPartners());
-          }
-          if (remoteTransactions.length > 0) {
-            setTransactions(remoteTransactions);
-            saveStoredTransactions(remoteTransactions);
-          } else {
-            setTransactions(getStoredTransactions());
-          }
+          setPartners(remotePartners);
+          saveStoredPartners(remotePartners);
+          setTransactions(remoteTransactions);
+          saveStoredTransactions(remoteTransactions);
         } else {
           setCurrentUser(null);
           setPartners([]);
@@ -134,10 +124,14 @@ export default function App() {
       } else {
         // Appwrite not configured
         setCurrentUser(null);
+        setPartners([]);
+        setTransactions([]);
       }
     } catch (err) {
       console.warn('Session verification error:', err);
       setCurrentUser(null);
+      setPartners([]);
+      setTransactions([]);
     } finally {
       setIsCheckingAuth(false);
     }
@@ -152,14 +146,10 @@ export default function App() {
         fetchPartnersFromAppwrite(settings.appwrite),
         fetchTransactionsFromAppwrite(settings.appwrite),
       ]);
-      if (remotePartners.length > 0) {
-        setPartners(remotePartners);
-        saveStoredPartners(remotePartners);
-      }
-      if (remoteTransactions.length > 0) {
-        setTransactions(remoteTransactions);
-        saveStoredTransactions(remoteTransactions);
-      }
+      setPartners(remotePartners);
+      saveStoredPartners(remotePartners);
+      setTransactions(remoteTransactions);
+      saveStoredTransactions(remoteTransactions);
     } catch (err) {
       console.warn('Cloud sync error on login:', err);
     }

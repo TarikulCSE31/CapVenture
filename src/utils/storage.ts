@@ -141,13 +141,11 @@ export function getStoredPartners(): Partner[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PARTNERS);
     if (!raw) {
-      // Seed initial demo data on first load
-      saveStoredPartners(INITIAL_DEMO_PARTNERS);
-      return INITIAL_DEMO_PARTNERS;
+      return [];
     }
     return JSON.parse(raw);
   } catch {
-    return INITIAL_DEMO_PARTNERS;
+    return [];
   }
 }
 
@@ -163,12 +161,11 @@ export function getStoredTransactions(): Transaction[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
     if (!raw) {
-      saveStoredTransactions(INITIAL_DEMO_TRANSACTIONS);
-      return INITIAL_DEMO_TRANSACTIONS;
+      return [];
     }
     return JSON.parse(raw);
   } catch {
-    return INITIAL_DEMO_TRANSACTIONS;
+    return [];
   }
 }
 
