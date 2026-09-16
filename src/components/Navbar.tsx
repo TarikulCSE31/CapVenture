@@ -14,6 +14,10 @@ import {
   Tabs,
   Tab,
   useTheme,
+  Avatar,
+  Menu,
+  ListItemIcon,
+  Divider,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -27,8 +31,10 @@ import {
   Brightness7,
   CloudDone,
   CloudOff,
+  Login,
+  Logout,
 } from '@mui/icons-material';
-import { CurrencyConfig, DEFAULT_CURRENCIES, Partner } from '../types';
+import { AuthUser, CurrencyConfig, DEFAULT_CURRENCIES, Partner } from '../types';
 
 interface NavbarProps {
   activeTab: 'dashboard' | 'ledger' | 'statement';
@@ -43,6 +49,9 @@ interface NavbarProps {
   onOpenSettingsModal: () => void;
   isAppwriteEnabled?: boolean;
   onToggleTheme: () => void;
+  currentUser: AuthUser | null;
+  onOpenAuthModal: () => void;
+  onLogout: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -58,8 +67,20 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSettingsModal,
   isAppwriteEnabled = false,
   onToggleTheme,
+  currentUser,
+  onOpenAuthModal,
+  onLogout,
 }) => {
   const theme = useTheme();
+  const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
+
+  const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorElUser(event.currentTarget);
+  };
+
+  const handleCloseUserMenu = () => {
+    setAnchorElUser(null);
+  };
 
   return (
     <AppBar
@@ -202,6 +223,77 @@ export const Navbar: React.FC<NavbarProps> = ({
               <SettingsOutlined fontSize="small" />
             </IconButton>
           </Tooltip>
+
+          {/* User Account / Sign In */}
+          {currentUser ? (
+            <>
+              <Tooltip title={`Signed in as ${currentUser.name || currentUser.email}`}>
+                <IconButton onClick={handleOpenUserMenu} size="small" sx={{ p: 0.5 }}>
+                  <Avatar
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      fontSize: '0.8125rem',
+                      fontWeight: 700,
+                      bgcolor: 'primary.main',
+                    }}
+                  >
+                    {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                  </Avatar>
+                </IconButton>
+              </Tooltip>
+              <Menu
+                anchorEl={anchorElUser}
+                open={Boolean(anchorElUser)}
+                onClose={handleCloseUserMenu}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                slotProps={{ paper: { elevation: 4, sx: { mt: 1, minWidth: 220, borderRadius: 2, p: 1 } } }}
+              >
+                <Box sx={{ px: 1.5, py: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {currentUser.name || 'User'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all', display: 'block' }}>
+                    {currentUser.email}
+                  </Typography>
+                  <Chip
+                    size="small"
+                    label="Appwrite Cloud"
+                    color="success"
+                    variant="outlined"
+                    sx={{ mt: 0.8, height: 20, fontSize: '0.6875rem' }}
+                  />
+                </Box>
+                <Divider sx={{ my: 1 }} />
+                <MenuItem onClick={() => { handleCloseUserMenu(); onOpenSettingsModal(); }}>
+                  <ListItemIcon>
+                    <SettingsOutlined fontSize="small" />
+                  </ListItemIcon>
+                  Settings & Sync
+                </MenuItem>
+                <MenuItem onClick={() => { handleCloseUserMenu(); onLogout(); }}>
+                  <ListItemIcon>
+                    <Logout fontSize="small" color="error" />
+                  </ListItemIcon>
+                  <Typography color="error" variant="inherit">
+                    Sign Out
+                  </Typography>
+                </MenuItem>
+              </Menu>
+            </>
+          ) : (
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<Login fontSize="small" />}
+              onClick={onOpenAuthModal}
+              size="small"
+              sx={{ fontWeight: 600, fontSize: '0.8125rem', textTransform: 'none' }}
+            >
+              Sign In
+            </Button>
+          )}
 
           {/* Record Entry Button */}
           <Button

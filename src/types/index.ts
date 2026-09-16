@@ -98,3 +98,10 @@ export interface AppSettings {
   useSupabase: boolean;
   theme: 'dark' | 'light';
 }
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+}
+

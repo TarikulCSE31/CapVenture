@@ -36,11 +36,13 @@ import { StatementView } from './components/StatementView';
 import { TransactionModal } from './components/TransactionModal';
 import { PartnerModal } from './components/PartnerModal';
 import { SettingsModal } from './components/SettingsModal';
+import { AuthModal } from './components/AuthModal';
 import {
   Partner,
   Transaction,
   TransactionType,
   AppSettings,
+  AuthUser,
 } from './types';
 import {
   getStoredPartners,
@@ -65,11 +67,17 @@ import {
   deletePartnerFromAppwrite,
   saveTransactionToAppwrite,
   deleteTransactionFromAppwrite,
+  getCurrentAppwriteUser,
+  loginWithAppwrite,
+  signupWithAppwrite,
+  logoutAppwrite,
 } from './utils/appwrite';
 import { getAppTheme } from './theme';
 
 export default function App() {
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('dark');
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [settings, setSettings] = useState<AppSettings>(getStoredSettings());
@@ -100,10 +108,14 @@ export default function App() {
 
     if (isAppwriteConfigured(loadedSettings.appwrite)) {
       try {
-        const [remotePartners, remoteTransactions] = await Promise.all([
+        const [remotePartners, remoteTransactions, user] = await Promise.all([
           fetchPartnersFromAppwrite(loadedSettings.appwrite),
           fetchTransactionsFromAppwrite(loadedSettings.appwrite),
+          getCurrentAppwriteUser(loadedSettings.appwrite),
         ]);
+        if (user) {
+          setCurrentUser(user);
+        }
         if (remotePartners.length > 0) {
           setPartners(remotePartners);
           saveStoredPartners(remotePartners);
@@ -116,6 +128,38 @@ export default function App() {
         console.warn('Appwrite auto-fetch skipped, using cache:', err);
       }
     }
+  };
+
+  const handleLogin = async (email: string, pass: string) => {
+    const user = await loginWithAppwrite(settings.appwrite, email, pass);
+    setCurrentUser(user);
+    // Refresh cloud data upon login
+    try {
+      const [remotePartners, remoteTransactions] = await Promise.all([
+        fetchPartnersFromAppwrite(settings.appwrite),
+        fetchTransactionsFromAppwrite(settings.appwrite),
+      ]);
+      if (remotePartners.length > 0) {
+        setPartners(remotePartners);
+        saveStoredPartners(remotePartners);
+      }
+      if (remoteTransactions.length > 0) {
+        setTransactions(remoteTransactions);
+        saveStoredTransactions(remoteTransactions);
+      }
+    } catch (err) {
+      console.warn('Cloud sync error on login:', err);
+    }
+  };
+
+  const handleSignup = async (name: string, email: string, pass: string) => {
+    const user = await signupWithAppwrite(settings.appwrite, name, email, pass);
+    setCurrentUser(user);
+  };
+
+  const handleLogout = async () => {
+    await logoutAppwrite(settings.appwrite);
+    setCurrentUser(null);
   };
 
   const toggleTheme = () => {
@@ -279,6 +323,9 @@ export default function App() {
           onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
           isAppwriteEnabled={Boolean(settings.appwrite?.enabled)}
           onToggleTheme={toggleTheme}
+          currentUser={currentUser}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          onLogout={handleLogout}
         />
 
         {/* Main Viewport Container */}
@@ -572,6 +619,14 @@ export default function App() {
           onUpdateSettings={setSettings}
           onDataReloaded={loadAllData}
           onExportCsv={handleExportCsv}
+        />
+
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onLogin={handleLogin}
+          onSignup={handleSignup}
+          onContinueAsGuest={() => setIsAuthModalOpen(false)}
         />
 
         {/* Material Footer */}

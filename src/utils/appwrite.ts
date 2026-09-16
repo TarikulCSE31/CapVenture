@@ -1,11 +1,11 @@
-import { Client, Databases, Query } from 'appwrite';
-import { AppwriteConfig, Partner, Transaction } from '../types';
+import { Client, Databases, Account, ID, Query } from 'appwrite';
+import { AppwriteConfig, AuthUser, Partner, Transaction } from '../types';
 
 let cachedClient: Client | null = null;
 let cachedEndpoint = '';
 let cachedProjectId = '';
 
-function getDatabases(config: AppwriteConfig): Databases {
+export function getClient(config: AppwriteConfig): Client {
   if (
     !cachedClient ||
     cachedEndpoint !== config.endpoint ||
@@ -18,7 +18,98 @@ function getDatabases(config: AppwriteConfig): Databases {
     cachedEndpoint = config.endpoint;
     cachedProjectId = config.projectId;
   }
-  return new Databases(cachedClient);
+  return cachedClient;
+}
+
+export function getAccount(config: AppwriteConfig): Account {
+  return new Account(getClient(config));
+}
+
+function getDatabases(config: AppwriteConfig): Databases {
+  return new Databases(getClient(config));
+}
+
+/**
+ * Retrieve the currently logged in Appwrite user (or null if unauthenticated)
+ */
+export async function getCurrentAppwriteUser(config: AppwriteConfig): Promise<AuthUser | null> {
+  if (!config.endpoint || !config.projectId) return null;
+  try {
+    const account = getAccount(config);
+    const user = await account.get();
+    return {
+      id: user.$id,
+      name: user.name || user.email.split('@')[0],
+      email: user.email,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sign in using email and password
+ */
+export async function loginWithAppwrite(
+  config: AppwriteConfig,
+  email: string,
+  password: string
+): Promise<AuthUser> {
+  const account = getAccount(config);
+  try {
+    try {
+      await account.deleteSession('current');
+    } catch {
+      // ignore if no active session
+    }
+    await account.createEmailPasswordSession(email, password);
+    const user = await account.get();
+    return {
+      id: user.$id,
+      name: user.name || user.email.split('@')[0],
+      email: user.email,
+    };
+  } catch (err: any) {
+    console.error('Appwrite login error:', err);
+    throw new Error(err.message || 'Invalid email or password');
+  }
+}
+
+/**
+ * Sign up a new user and log them in
+ */
+export async function signupWithAppwrite(
+  config: AppwriteConfig,
+  name: string,
+  email: string,
+  password: string
+): Promise<AuthUser> {
+  const account = getAccount(config);
+  try {
+    await account.create(ID.unique(), email, password, name);
+    await account.createEmailPasswordSession(email, password);
+    const user = await account.get();
+    return {
+      id: user.$id,
+      name: user.name || name,
+      email: user.email,
+    };
+  } catch (err: any) {
+    console.error('Appwrite signup error:', err);
+    throw new Error(err.message || 'Failed to create account. Please verify your details.');
+  }
+}
+
+/**
+ * Logout current device session
+ */
+export async function logoutAppwrite(config: AppwriteConfig): Promise<void> {
+  try {
+    const account = getAccount(config);
+    await account.deleteSession('current');
+  } catch (err) {
+    console.warn('Logout warning:', err);
+  }
 }
 
 export function isAppwriteConfigured(config?: AppwriteConfig): boolean {
