@@ -21,7 +21,6 @@ import {
 } from '@mui/material';
 import {
   TrendingUp,
-  Add,
   PeopleOutlined,
   SettingsOutlined,
   TableChartOutlined,
@@ -35,7 +34,6 @@ import {
   Logout,
   Storefront,
   SwapHoriz,
-  ShoppingCart,
 } from '@mui/icons-material';
 import { AuthUser, CurrencyConfig, DEFAULT_CURRENCIES, Partner, UserRole } from '../types';
 
@@ -49,7 +47,7 @@ interface NavbarProps {
   onSelectPartner: (id: string) => void;
   currentCurrency: CurrencyConfig;
   onSelectCurrency: (currency: CurrencyConfig) => void;
-  onOpenTransactionModal: () => void;
+  onOpenTransactionModal?: () => void;
   onOpenBusinessTxModal?: () => void;
   onOpenPartnerModal: () => void;
   onOpenSettingsModal: () => void;
@@ -70,8 +68,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectPartner,
   currentCurrency,
   onSelectCurrency,
-  onOpenTransactionModal,
-  onOpenBusinessTxModal,
   onOpenPartnerModal,
   onOpenSettingsModal,
   isAppwriteEnabled = false,
@@ -353,45 +349,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               sx={{ fontWeight: 600, fontSize: '0.8125rem', textTransform: 'none', px: { xs: 1, sm: 1.8 }, minWidth: 0 }}
             >
               <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Sign In</Box>
-            </Button>
-          )}
-
-          {/* Primary Action Button */}
-          {isInvestor ? (
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<Add />}
-              onClick={onOpenTransactionModal}
-              size="small"
-              sx={{
-                fontWeight: 600,
-                fontSize: '0.8125rem',
-                px: { xs: 1, sm: 1.8 },
-                minWidth: { xs: 36, sm: 'auto' },
-                height: { xs: 32, sm: 36 },
-                '& .MuiButton-startIcon': { mr: { xs: 0, sm: 0.8 }, ml: { xs: 0, sm: -0.4 } },
-              }}
-            >
-              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Record Entry</Box>
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
-              color="success"
-              startIcon={<ShoppingCart />}
-              onClick={onOpenBusinessTxModal || onOpenTransactionModal}
-              size="small"
-              sx={{
-                fontWeight: 600,
-                fontSize: '0.8125rem',
-                px: { xs: 1, sm: 1.8 },
-                minWidth: { xs: 36, sm: 'auto' },
-                height: { xs: 32, sm: 36 },
-                '& .MuiButton-startIcon': { mr: { xs: 0, sm: 0.8 }, ml: { xs: 0, sm: -0.4 } },
-              }}
-            >
-              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Record Sale</Box>
             </Button>
           )}
 
