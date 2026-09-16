@@ -82,10 +82,10 @@ export interface AppwriteConfig {
 }
 
 export const DEFAULT_APPWRITE_CONFIG: AppwriteConfig = {
-  enabled: false,
-  endpoint: 'https://cloud.appwrite.io/v1',
-  projectId: '',
-  databaseId: 'capventure_db',
+  enabled: true,
+  endpoint: 'https://sgp.cloud.appwrite.io/v1',
+  projectId: '6aaa42010035bb510e38',
+  databaseId: '6aaa45b70030ed2bdc7c',
   partnersCollectionId: 'partners',
   transactionsCollectionId: 'transactions',
 };
