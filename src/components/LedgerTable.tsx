@@ -1,16 +1,35 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Search, 
-  ArrowDownRight, 
-  ArrowUpLeft, 
-  TrendingUp, 
-  RefreshCw, 
-  Trash2, 
-  Edit3, 
-  Download, 
-  ArrowUpDown, 
-  Layers
-} from 'lucide-react';
+import {
+  Paper,
+  TableContainer,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  TablePagination,
+  TextField,
+  InputAdornment,
+  Chip,
+  IconButton,
+  Button,
+  Box,
+  Typography,
+  ToggleButtonGroup,
+  ToggleButton,
+  Tooltip,
+} from '@mui/material';
+import {
+  Search,
+  FileDownload,
+  Edit,
+  DeleteOutlined,
+  Add,
+  CallMade,
+  CallReceived,
+  TrendingUp,
+  Loop,
+} from '@mui/icons-material';
 import { CurrencyConfig, Transaction, TransactionType, TransactionWithRunningBalance } from '../types';
 import { formatCurrency } from '../utils/calculations';
 
@@ -33,280 +52,287 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | TransactionType>('ALL');
-  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // Filtered & Sorted list
+  // Filtered list
   const filtered = useMemo(() => {
-    return transactionsWithBalance
-      .filter((t) => {
-        if (typeFilter !== 'ALL' && t.type !== typeFilter) return false;
-        if (!searchTerm.trim()) return true;
+    return transactionsWithBalance.filter((t) => {
+      if (typeFilter !== 'ALL' && t.type !== typeFilter) return false;
+      if (!searchTerm.trim()) return true;
 
-        const term = searchTerm.toLowerCase();
-        const partnerMatch = (t.partnerName || '').toLowerCase().includes(term);
-        const descMatch = (t.description || '').toLowerCase().includes(term);
-        const refMatch = (t.reference || '').toLowerCase().includes(term);
-        const amtMatch = t.amount.toString().includes(term);
-        return partnerMatch || descMatch || refMatch || amtMatch;
-      })
-      .sort((a, b) => {
-        const timeA = new Date(a.date).getTime();
-        const timeB = new Date(b.date).getTime();
-        return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
-      });
-  }, [transactionsWithBalance, typeFilter, searchTerm, sortOrder]);
+      const term = searchTerm.toLowerCase();
+      const partnerMatch = (t.partnerName || '').toLowerCase().includes(term);
+      const descMatch = (t.description || '').toLowerCase().includes(term);
+      const refMatch = (t.reference || '').toLowerCase().includes(term);
+      const amtMatch = t.amount.toString().includes(term);
+      return partnerMatch || descMatch || refMatch || amtMatch;
+    });
+  }, [transactionsWithBalance, typeFilter, searchTerm]);
 
-  const getTypeBadge = (type: TransactionType) => {
+  const pagedTransactions = useMemo(() => {
+    return filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  }, [filtered, page, rowsPerPage]);
+
+  const getTypeChip = (type: TransactionType) => {
     switch (type) {
       case 'INVESTMENT_OUT':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-            <ArrowDownRight className="h-3 w-3" />
-            Capital Out
-          </span>
+          <Chip
+            icon={<CallMade style={{ fontSize: 13 }} />}
+            label="Capital Out"
+            size="small"
+            color="primary"
+            variant="outlined"
+          />
         );
       case 'PRINCIPAL_RETURN':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            <ArrowUpLeft className="h-3 w-3" />
-            Principal Back
-          </span>
+          <Chip
+            icon={<CallReceived style={{ fontSize: 13 }} />}
+            label="Principal Back"
+            size="small"
+            color="warning"
+            variant="outlined"
+          />
         );
       case 'PROFIT_PAYOUT':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <TrendingUp className="h-3 w-3" />
-            Profit Share
-          </span>
+          <Chip
+            icon={<TrendingUp style={{ fontSize: 13 }} />}
+            label="Profit Share"
+            size="small"
+            color="success"
+            variant="outlined"
+          />
         );
       case 'REINVEST':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
-            <RefreshCw className="h-3 w-3" />
-            Reinvested
-          </span>
+          <Chip
+            icon={<Loop style={{ fontSize: 13 }} />}
+            label="Reinvested"
+            size="small"
+            color="secondary"
+            variant="outlined"
+          />
         );
     }
   };
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/70 backdrop-blur-sm overflow-hidden shadow-xl">
+    <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
       
-      {/* Table Header Controls */}
-      <div className="p-4 sm:p-5 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Header Controls */}
+      <Box sx={{ p: 2.5, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' } }}>
         
         {/* Left: Search & Filter Tabs */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
-          {/* Search Box */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search memo, partner, reference, amount..."
-              className="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
-          </div>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, alignItems: { xs: 'stretch', sm: 'center' }, flex: 1 }}>
+          <TextField
+            placeholder="Search memo, partner, reference..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(0);
+            }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{ maxWidth: { sm: 280 } }}
+          />
 
-          {/* Type Filter Pills */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
-            {[
-              { label: 'All', value: 'ALL' },
-              { label: 'Capital Out', value: 'INVESTMENT_OUT' },
-              { label: 'Principal Back', value: 'PRINCIPAL_RETURN' },
-              { label: 'Profit', value: 'PROFIT_PAYOUT' },
-              { label: 'Reinvested', value: 'REINVEST' },
-            ].map((tab) => (
-              <button
-                key={tab.value}
-                onClick={() => setTypeFilter(tab.value as any)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                  typeFilter === tab.value
-                    ? 'bg-slate-800 text-white border border-slate-700 font-semibold'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Right Actions: Sort & Export */}
-        <div className="flex items-center gap-2 self-end sm:self-auto">
-          {/* Sort order toggle */}
-          <button
-            onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-slate-800/80 transition-colors"
-            title="Toggle sort date"
+          <ToggleButtonGroup
+            value={typeFilter}
+            exclusive
+            onChange={(_, val) => {
+              if (val) {
+                setTypeFilter(val);
+                setPage(0);
+              }
+            }}
+            size="small"
+            sx={{ overflowX: 'auto' }}
           >
-            <ArrowUpDown className="h-3.5 w-3.5" />
-            <span>{sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}</span>
-          </button>
+            <ToggleButton value="ALL" sx={{ px: 1.5, fontSize: '0.75rem', fontWeight: 600 }}>
+              All ({transactionsWithBalance.length})
+            </ToggleButton>
+            <ToggleButton value="INVESTMENT_OUT" sx={{ px: 1.5, fontSize: '0.75rem', fontWeight: 600 }}>
+              Invest Out
+            </ToggleButton>
+            <ToggleButton value="PRINCIPAL_RETURN" sx={{ px: 1.5, fontSize: '0.75rem', fontWeight: 600 }}>
+              Principal Back
+            </ToggleButton>
+            <ToggleButton value="PROFIT_PAYOUT" sx={{ px: 1.5, fontSize: '0.75rem', fontWeight: 600 }}>
+              Profit
+            </ToggleButton>
+            <ToggleButton value="REINVEST" sx={{ px: 1.5, fontSize: '0.75rem', fontWeight: 600 }}>
+              Reinvest
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
 
-          {/* Export CSV */}
-          <button
+        {/* Right: Export CSV & Add Button */}
+        <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end' }}>
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<FileDownload />}
             onClick={onExportCsv}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-slate-800/80 transition-colors"
-            title="Export full ledger to CSV/Excel"
+            size="small"
+            sx={{ fontSize: '0.8125rem' }}
           >
-            <Download className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Export CSV</span>
-          </button>
-        </div>
+            Export CSV
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<Add />}
+            onClick={onOpenAddModal}
+            size="small"
+            sx={{ fontSize: '0.8125rem' }}
+          >
+            Add Record
+          </Button>
+        </Box>
 
-      </div>
+      </Box>
 
-      {/* Ledger Table Content */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-slate-800/80 bg-slate-950/40 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              <th className="py-3.5 px-4 sm:px-6">Date</th>
-              <th className="py-3.5 px-4">Type</th>
-              <th className="py-3.5 px-4">Partner</th>
-              <th className="py-3.5 px-4">Description & Ref</th>
-              <th className="py-3.5 px-4 text-right">Amount</th>
-              <th className="py-3.5 px-4 text-right">Running Principal</th>
-              <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/60 text-xs">
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="py-12 text-center text-slate-500">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <Layers className="h-8 w-8 text-slate-600 stroke-[1.5]" />
-                    <p className="text-sm font-medium text-slate-400">No transactions found</p>
-                    <p className="text-xs text-slate-500">
-                      Try adjusting your filters or record a new transaction entry.
-                    </p>
-                    <button
-                      onClick={onOpenAddModal}
-                      className="mt-2 px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold hover:bg-emerald-500/30 transition-colors"
-                    >
-                      + Record First Entry
-                    </button>
-                  </div>
-                </td>
-              </tr>
+      {/* Material Table */}
+      <TableContainer>
+        <Table sx={{ minWidth: 700 }} size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Date</TableCell>
+              <TableCell>Category</TableCell>
+              <TableCell>Partner</TableCell>
+              <TableCell>Description & Reference</TableCell>
+              <TableCell align="right">Amount</TableCell>
+              <TableCell align="right">Running Principal</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {pagedTransactions.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No transactions match your current filters.
+                  </Typography>
+                </TableCell>
+              </TableRow>
             ) : (
-              filtered.map((t) => {
+              pagedTransactions.map((t) => {
                 const isReturn = t.type === 'PRINCIPAL_RETURN';
                 const isProfit = t.type === 'PROFIT_PAYOUT';
                 const isReinvest = t.type === 'REINVEST';
 
                 return (
-                  <tr 
-                    key={t.id}
-                    className="hover:bg-slate-800/30 transition-colors group"
-                  >
+                  <TableRow key={t.id} hover>
                     {/* Date */}
-                    <td className="py-3.5 px-4 sm:px-6 font-medium text-slate-300 whitespace-nowrap">
+                    <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 500 }}>
                       {new Date(t.date).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
                       })}
-                    </td>
+                    </TableCell>
 
-                    {/* Category Type Badge */}
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      {getTypeBadge(t.type)}
-                    </td>
+                    {/* Category Type */}
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      {getTypeChip(t.type)}
+                    </TableCell>
 
                     {/* Partner Name */}
-                    <td className="py-3.5 px-4 font-semibold text-slate-200 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                        <span>{t.partnerName}</span>
-                      </div>
-                    </td>
+                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      {t.partnerName}
+                    </TableCell>
 
                     {/* Description & Reference */}
-                    <td className="py-3.5 px-4 max-w-xs sm:max-w-md">
-                      <div className="font-medium text-slate-200 truncate" title={t.description}>
+                    <TableCell sx={{ maxWidth: 280 }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.8125rem', fontWeight: 500 }} noWrap>
                         {t.description || '—'}
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                        {t.paymentMethod && <span>via {t.paymentMethod}</span>}
-                        {t.reference && (
-                          <span className="font-mono text-slate-400 bg-slate-800/60 px-1 rounded">
-                            #{t.reference}
-                          </span>
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        {t.paymentMethod && (
+                          <Typography variant="caption" color="text.secondary">
+                            via {t.paymentMethod}
+                          </Typography>
                         )}
-                      </div>
-                    </td>
+                        {t.reference && (
+                          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                            #{t.reference}
+                          </Typography>
+                        )}
+                      </Box>
+                    </TableCell>
 
                     {/* Amount */}
-                    <td className="py-3.5 px-4 text-right font-bold whitespace-nowrap">
-                      <span className={
-                        isProfit || isReinvest 
-                          ? 'text-emerald-400' 
-                          : isReturn 
-                          ? 'text-amber-400' 
-                          : 'text-blue-300'
-                      }>
+                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 700,
+                          color: isProfit || isReinvest ? 'success.main' : isReturn ? 'warning.main' : 'primary.main',
+                        }}
+                      >
                         {isProfit ? '+' : ''}
                         {formatCurrency(t.amount, currency)}
-                      </span>
-                    </td>
+                      </Typography>
+                    </TableCell>
 
                     {/* Running Principal */}
-                    <td className="py-3.5 px-4 text-right font-mono font-medium text-slate-300 whitespace-nowrap">
+                    <TableCell align="right" sx={{ whiteSpace: 'nowrap', fontFamily: 'monospace', fontWeight: 600 }}>
                       {formatCurrency(t.runningPrincipal, currency)}
-                    </td>
+                    </TableCell>
 
                     {/* Actions */}
-                    <td className="py-3.5 px-4 sm:px-6 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => onEditTransaction(t)}
-                          className="p-1.5 text-slate-400 hover:text-white rounded-md hover:bg-slate-800 transition-colors"
-                          title="Edit Transaction"
-                        >
-                          <Edit3 className="h-3.5 w-3.5" />
-                        </button>
-                        <button
+                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                      <Tooltip title="Edit">
+                        <IconButton size="small" onClick={() => onEditTransaction(t)}>
+                          <Edit fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton
+                          size="small"
+                          color="error"
                           onClick={() => {
-                            if (confirm(`Delete transaction for ${formatCurrency(t.amount, currency)} on ${t.date}?`)) {
+                            if (confirm(`Delete transaction of ${formatCurrency(t.amount, currency)}?`)) {
                               onDeleteTransaction(t.id);
                             }
                           }}
-                          className="p-1.5 text-slate-500 hover:text-rose-400 rounded-md hover:bg-rose-500/10 transition-colors"
-                          title="Delete Transaction"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                          <DeleteOutlined fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
                 );
               })
             )}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-      {/* Table Footer Summary */}
-      {filtered.length > 0 && (
-        <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/60 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
-          <span>
-            Showing <strong className="text-white">{filtered.length}</strong> of{' '}
-            <strong className="text-white">{transactionsWithBalance.length}</strong> total records
-          </span>
-          <div className="flex items-center gap-4">
-            <span>
-              Principal in active view:{' '}
-              <strong className="text-white font-mono">
-                {formatCurrency(filtered[0]?.runningPrincipal || 0, currency)}
-              </strong>
-            </span>
-          </div>
-        </div>
-      )}
+      {/* Pagination */}
+      <TablePagination
+        rowsPerPageOptions={[10, 25, 50]}
+        component="div"
+        count={filtered.length}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={(_, newPage) => setPage(newPage)}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10));
+          setPage(0);
+        }}
+      />
 
-    </div>
+    </Paper>
   );
 };

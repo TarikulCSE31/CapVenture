@@ -1,4 +1,17 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import {
+  Grid,
+  Paper,
+  Box,
+  Typography,
+  LinearProgress,
+  useTheme,
+} from '@mui/material';
+import {
+  TrendingUp,
+  BarChart as BarChartIcon,
+  Timeline,
+} from '@mui/icons-material';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -13,7 +26,6 @@ import {
 } from 'recharts';
 import { CurrencyConfig, FinancialSummary, Transaction } from '../types';
 import { formatCurrency, generateCumulativeTimeline, generateMonthlyData } from '../utils/calculations';
-import { TrendingUp, BarChart3, Activity, PieChart } from 'lucide-react';
 
 interface AnalyticsChartsProps {
   transactions: Transaction[];
@@ -26,150 +38,134 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
   summary,
   currency,
 }) => {
-  const timelineData = React.useMemo(() => generateCumulativeTimeline(transactions), [transactions]);
-  const monthlyData = React.useMemo(() => generateMonthlyData(transactions), [transactions]);
+  const theme = useTheme();
+  const timelineData = useMemo(() => generateCumulativeTimeline(transactions), [transactions]);
+  const monthlyData = useMemo(() => generateMonthlyData(transactions), [transactions]);
 
-  // Average monthly profit
-  const avgMonthlyProfit = React.useMemo(() => {
+  const avgMonthlyProfit = useMemo(() => {
     if (monthlyData.length === 0) return 0;
     const totalProf = monthlyData.reduce((acc, curr) => acc + curr.profit, 0);
     return totalProf / monthlyData.length;
   }, [monthlyData]);
 
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       
-      {/* Top Insights Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        
-        {/* 1. Break-Even Health Card */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-semibold uppercase">
-            <span>Capital Break-Even Tracker</span>
-            <Activity className="h-4 w-4 text-emerald-400" />
-          </div>
-          <div className="mt-3">
-            <div className="flex items-baseline justify-between">
-              <span className="text-xl font-bold text-white">
+      {/* Top Analytical Cards */}
+      <Grid container spacing={2.5}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, height: '100%' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
+                Break-Even Recovery
+              </Typography>
+              <Timeline fontSize="small" color="primary" />
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="h5" sx={{ fontWeight: 700 }}>
                 {summary.recoveryPercentage.toFixed(1)}%
-              </span>
-              <span className="text-xs text-slate-400">
-                {summary.isBreakEvenReached ? 'Goal Achieved!' : 'Capital Recovered'}
-              </span>
-            </div>
-            <div className="w-full bg-slate-800 rounded-full h-2 mt-2 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ${
-                  summary.isBreakEvenReached ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-emerald-500'
-                }`}
-                style={{ width: `${Math.min(100, Math.max(0, summary.recoveryPercentage))}%` }}
-              />
-            </div>
-            <p className="text-[11px] text-slate-400 mt-2">
-              {summary.isBreakEvenReached ? (
-                <span className="text-emerald-400 font-medium">
-                  🎉 You have recovered all capital! Every new profit payout is 100% net surplus.
-                </span>
-              ) : (
-                <span>
-                  Total returned + profit: {formatCurrency(summary.totalPrincipalReturned + summary.totalProfitRealized, currency)}
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
+              </Typography>
+              <Typography variant="caption" color={summary.isBreakEvenReached ? 'success.main' : 'text.secondary'} sx={{ fontWeight: 600 }}>
+                {summary.isBreakEvenReached ? 'Fully Recovered' : 'In Progress'}
+              </Typography>
+            </Box>
+            <LinearProgress
+              variant="determinate"
+              value={Math.min(100, Math.max(0, summary.recoveryPercentage))}
+              color={summary.isBreakEvenReached ? 'success' : 'primary'}
+              sx={{ height: 8, borderRadius: 4, mb: 1 }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              Total returns + profit: {formatCurrency(summary.totalPrincipalReturned + summary.totalProfitRealized, currency)}
+            </Typography>
+          </Paper>
+        </Grid>
 
-        {/* 2. Monthly Velocity */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-semibold uppercase">
-            <span>Avg Monthly Profit</span>
-            <TrendingUp className="h-4 w-4 text-teal-400" />
-          </div>
-          <div className="mt-3">
-            <div className="text-xl font-bold text-emerald-400">
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, height: '100%' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
+                Monthly Profit Rate
+              </Typography>
+              <TrendingUp fontSize="small" color="success" />
+            </Box>
+            <Typography variant="h5" color="success.main" sx={{ fontWeight: 700, mb: 0.5 }}>
               +{formatCurrency(avgMonthlyProfit, currency)}
-              <span className="text-xs text-slate-400 font-normal"> / month</span>
-            </div>
-            <p className="text-[11px] text-slate-400 mt-2">
-              Based on active investment history across {monthlyData.length} active recorded months.
-            </p>
-          </div>
-        </div>
+              <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                / month avg
+              </Typography>
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Averaged over {monthlyData.length} recorded active month{monthlyData.length !== 1 ? 's' : ''}.
+            </Typography>
+          </Paper>
+        </Grid>
 
-        {/* 3. Capital Efficiency Ratio */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-semibold uppercase">
-            <span>Cumulative Return (ROI)</span>
-            <PieChart className="h-4 w-4 text-blue-400" />
-          </div>
-          <div className="mt-3">
-            <div className="text-xl font-bold text-teal-300">
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, height: '100%' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
+                Total Return On Investment
+              </Typography>
+              <BarChartIcon fontSize="small" color="info" />
+            </Box>
+            <Typography variant="h5" color="primary.main" sx={{ fontWeight: 700, mb: 0.5 }}>
               {summary.roiPercentage.toFixed(1)}% ROI
-            </div>
-            <p className="text-[11px] text-slate-400 mt-2">
-              Total profit earned as a proportion of total capital put at risk ({formatCurrency(summary.totalInvested, currency)}).
-            </p>
-          </div>
-        </div>
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Profit earned on {formatCurrency(summary.totalInvested, currency)} cumulative capital.
+            </Typography>
+          </Paper>
+        </Grid>
+      </Grid>
 
-      </div>
-
-      {/* Chart 1: Cumulative Capital vs Profit Trajectory */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-emerald-400" />
+      {/* Chart 1: Cumulative Trajectory */}
+      <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
               Capital Out vs. Cumulative Profit Over Time
-            </h3>
-            <p className="text-xs text-slate-400">
-              Tracks how your principal lent fluctuates against your steadily growing profit pile
-            </p>
-          </div>
-          <div className="flex items-center gap-4 text-xs">
-            <span className="flex items-center gap-1.5 text-blue-400">
-              <span className="h-2 w-2 rounded-full bg-blue-400" /> Active Principal
-            </span>
-            <span className="flex items-center gap-1.5 text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" /> Cumulative Profit
-            </span>
-          </div>
-        </div>
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Visualizes active principal vs total realized earnings
+            </Typography>
+          </Box>
+        </Box>
 
-        <div className="h-72 w-full">
+        <Box sx={{ width: '100%', height: 300 }}>
           {timelineData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={timelineData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorPrincipal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    <stop offset="5%" stopColor={theme.palette.primary.main} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={theme.palette.primary.main} stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    <stop offset="5%" stopColor={theme.palette.success.main} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={theme.palette.success.main} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} vertical={false} />
                 <XAxis 
                   dataKey="formattedDate" 
-                  stroke="#64748b" 
+                  stroke={theme.palette.text.secondary} 
                   fontSize={11}
                   tickLine={false}
                 />
                 <YAxis 
-                  stroke="#64748b" 
+                  stroke={theme.palette.text.secondary} 
                   fontSize={11}
                   tickLine={false}
                   tickFormatter={(val) => `${currency.symbol}${val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val}`}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#0f172a',
-                    borderColor: '#334155',
-                    borderRadius: '12px',
+                    backgroundColor: theme.palette.background.paper,
+                    borderColor: theme.palette.divider,
+                    borderRadius: '8px',
                     fontSize: '12px',
-                    color: '#f8fafc',
+                    color: theme.palette.text.primary,
                   }}
                   formatter={(value: any, name: any) => {
                     const formatted = formatCurrency(Number(value) || 0, currency);
@@ -182,7 +178,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                   type="monotone"
                   dataKey="activeCapital"
                   name="activeCapital"
-                  stroke="#3b82f6"
+                  stroke={theme.palette.primary.main}
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#colorPrincipal)"
@@ -191,7 +187,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                   type="monotone"
                   dataKey="cumulativeProfit"
                   name="cumulativeProfit"
-                  stroke="#10b981"
+                  stroke={theme.palette.success.main}
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#colorProfit)"
@@ -199,51 +195,50 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-full flex items-center justify-center text-slate-500 text-xs">
-              Record transactions to generate timeline charts
-            </div>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <Typography variant="caption" color="text.secondary">
+                Record transactions to generate timeline charts
+              </Typography>
+            </Box>
           )}
-        </div>
-      </div>
+        </Box>
+      </Paper>
 
-      {/* Chart 2: Monthly Inflows and Outflows */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-teal-400" />
-              Monthly Cash Flow & Profit Volume
-            </h3>
-            <p className="text-xs text-slate-400">
-              Compare capital injected vs. repayments and profit distributions month-by-month
-            </p>
-          </div>
-        </div>
+      {/* Chart 2: Monthly Breakdown */}
+      <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            Monthly Cash Flow & Profit Volume
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Monthly comparison of capital advances, repayments, and profit distributions
+          </Typography>
+        </Box>
 
-        <div className="h-72 w-full">
+        <Box sx={{ width: '100%', height: 300 }}>
           {monthlyData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} vertical={false} />
                 <XAxis 
                   dataKey="label" 
-                  stroke="#64748b" 
+                  stroke={theme.palette.text.secondary} 
                   fontSize={11}
                   tickLine={false}
                 />
                 <YAxis 
-                  stroke="#64748b" 
+                  stroke={theme.palette.text.secondary} 
                   fontSize={11}
                   tickLine={false}
                   tickFormatter={(val) => `${currency.symbol}${val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val}`}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#0f172a',
-                    borderColor: '#334155',
-                    borderRadius: '12px',
+                    backgroundColor: theme.palette.background.paper,
+                    borderColor: theme.palette.divider,
+                    borderRadius: '8px',
                     fontSize: '12px',
-                    color: '#f8fafc',
+                    color: theme.palette.text.primary,
                   }}
                   formatter={(value: any, name: any) => {
                     const formatted = formatCurrency(Number(value) || 0, currency);
@@ -256,21 +251,23 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                 <Legend 
                   verticalAlign="top" 
                   height={36} 
-                  wrapperStyle={{ fontSize: '11px', color: '#94a3b8' }}
+                  wrapperStyle={{ fontSize: '12px', color: theme.palette.text.secondary }}
                 />
-                <Bar dataKey="invested" name="Capital Invested" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="returned" name="Principal Returned" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="profit" name="Profit Earned" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="invested" name="Capital Invested" fill={theme.palette.primary.main} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="returned" name="Principal Returned" fill={theme.palette.warning.main} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="profit" name="Profit Earned" fill={theme.palette.success.main} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-full flex items-center justify-center text-slate-500 text-xs">
-              No monthly activity to display yet
-            </div>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <Typography variant="caption" color="text.secondary">
+                No monthly activity to display yet
+              </Typography>
+            </Box>
           )}
-        </div>
-      </div>
+        </Box>
+      </Paper>
 
-    </div>
+    </Box>
   );
 };

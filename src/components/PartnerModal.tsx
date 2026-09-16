@@ -1,5 +1,31 @@
 import React, { useState } from 'react';
-import { X, UserPlus, Phone, Mail, Trash2, Edit2, Users } from 'lucide-react';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  IconButton,
+  TextField,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  Avatar,
+  Typography,
+  Box,
+  Divider,
+  Paper,
+} from '@mui/material';
+import {
+  Close,
+  PersonAdd,
+  Edit,
+  DeleteOutlined,
+  Phone,
+  Mail,
+  Business,
+} from '@mui/icons-material';
 import { Partner } from '../types';
 
 interface PartnerModalProps {
@@ -11,14 +37,13 @@ interface PartnerModalProps {
 }
 
 const AVATAR_COLORS = [
-  '#10b981', // emerald
-  '#6366f1', // indigo
-  '#f59e0b', // amber
-  '#ec4899', // pink
-  '#06b6d4', // cyan
-  '#8b5cf6', // violet
-  '#f97316', // orange
-  '#14b8a6', // teal
+  '#1976d2', // blue
+  '#2e7d32', // green
+  '#ed6c02', // amber
+  '#9c27b0', // purple
+  '#0288d1', // cyan
+  '#d32f2f', // red
+  '#00796b', // teal
 ];
 
 export const PartnerModal: React.FC<PartnerModalProps> = ({
@@ -34,8 +59,6 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({
   const [email, setEmail] = useState('');
   const [notes, setNotes] = useState('');
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0]);
-
-  if (!isOpen) return null;
 
   const handleStartEdit = (partner: Partner) => {
     setEditingId(partner.id);
@@ -73,198 +96,197 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-      <div 
-        className="relative w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl shadow-black/80 overflow-hidden flex flex-col max-h-[90vh]"
-        role="dialog"
-        aria-modal="true"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-slate-900/60">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <Users className="h-4 w-4" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white">Business Partners & Borrowers</h2>
-              <p className="text-xs text-slate-400">Manage individuals or businesses you invest with</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Dialog open={isOpen} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ m: 0, p: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>
+            <Business fontSize="small" />
+          </Avatar>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              Business Partners
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Manage borrowers and partner contacts
+            </Typography>
+          </Box>
+        </Box>
+        <IconButton onClick={onClose} size="small">
+          <Close fontSize="small" />
+        </IconButton>
+      </DialogTitle>
 
-        {/* Content */}
-        <div className="overflow-y-auto px-6 py-5 space-y-6">
+      <DialogContent dividers sx={{ p: 2.5 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           
           {/* Add / Edit Form */}
-          <form onSubmit={handleSubmit} className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-                {editingId ? 'Edit Partner Details' : 'Add New Partner'}
-              </span>
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={handleResetForm}
-                  className="text-xs text-slate-400 hover:text-white underline"
-                >
-                  Cancel Edit
-                </button>
-              )}
-            </div>
+          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+            <form onSubmit={handleSubmit}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  {editingId ? 'Edit Partner' : 'Add New Partner'}
+                </Typography>
+                {editingId && (
+                  <Button size="small" onClick={handleResetForm} color="inherit">
+                    Cancel
+                  </Button>
+                )}
+              </Box>
 
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">Partner / Business Name *</label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. John Doe (Tech Ventures)"
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                  label="Partner / Business Name *"
+                  required
+                  fullWidth
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. John Doe (Tech Logistics)"
+                />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Phone / WhatsApp</label>
-                <div className="relative">
-                  <Phone className="h-3.5 w-3.5 absolute left-3 top-3 text-slate-500" />
-                  <input
-                    type="text"
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <TextField
+                    label="Phone / WhatsApp"
+                    fullWidth
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+1 234 567 890"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    placeholder="+1 555-0199"
                   />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Email</label>
-                <div className="relative">
-                  <Mail className="h-3.5 w-3.5 absolute left-3 top-3 text-slate-500" />
-                  <input
+                  <TextField
+                    label="Email Address"
                     type="email"
+                    fullWidth
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="partner@business.com"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
-                </div>
-              </div>
-            </div>
+                </Box>
 
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">Agreement / Terms Memo</label>
-              <input
-                type="text"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. 15% monthly net return, capital return within 6 months"
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
+                <TextField
+                  label="Agreement Notes / Terms"
+                  fullWidth
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="e.g. 15% monthly net return"
+                />
 
-            {/* Avatar Color Picker */}
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">Color Tag</label>
-              <div className="flex items-center gap-2">
-                {AVATAR_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setAvatarColor(c)}
-                    className={`h-6 w-6 rounded-full transition-transform ${
-                      avatarColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900 scale-110' : 'opacity-70 hover:opacity-100'
-                    }`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
-            </div>
+                {/* Color Avatar Picker */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                    Color Tag:
+                  </Typography>
+                  {AVATAR_COLORS.map((c) => (
+                    <Box
+                      key={c}
+                      onClick={() => setAvatarColor(c)}
+                      sx={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: '50%',
+                        bgcolor: c,
+                        cursor: 'pointer',
+                        transform: avatarColor === c ? 'scale(1.2)' : 'scale(1)',
+                        border: avatarColor === c ? '2px solid white' : 'none',
+                        boxShadow: avatarColor === c ? '0 0 0 1px rgba(0,0,0,0.3)' : 'none',
+                        transition: 'transform 0.15s',
+                      }}
+                    />
+                  ))}
+                </Box>
 
-            <div className="pt-2 flex justify-end">
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-lg transition-colors"
-              >
-                <UserPlus className="h-3.5 w-3.5" />
-                {editingId ? 'Update Partner' : 'Save Partner'}
-              </button>
-            </div>
-          </form>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    startIcon={<PersonAdd />}
+                  >
+                    {editingId ? 'Update Partner' : 'Save Partner'}
+                  </Button>
+                </Box>
+              </Box>
+            </form>
+          </Paper>
 
-          {/* Current Partners List */}
-          <div>
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+          {/* Existing Partners List */}
+          <Box>
+            <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', display: 'block', mb: 1.5 }}>
               Existing Partners ({partners.length})
-            </h3>
-            <div className="space-y-2">
-              {partners.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 hover:border-slate-700 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="h-9 w-9 rounded-xl flex items-center justify-center font-bold text-slate-950 text-sm shadow-md"
-                      style={{ backgroundColor: p.avatarColor || '#10b981' }}
-                    >
-                      {p.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="font-semibold text-sm text-white">{p.name}</div>
-                      <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
-                        {p.phone && <span>📞 {p.phone}</span>}
-                        {p.notes && <span className="line-clamp-1 italic text-slate-400">📝 {p.notes}</span>}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleStartEdit(p)}
-                      className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-                      title="Edit"
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </button>
-                    {partners.length > 1 && (
-                      <button
-                        onClick={() => {
-                          if (confirm(`Are you sure you want to delete "${p.name}"? Transactions associated with this partner will remain in your database.`)) {
-                            onDeletePartner(p.id);
-                          }
-                        }}
-                        className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
+            </Typography>
+            <List disablePadding>
+              {partners.map((p, idx) => (
+                <React.Fragment key={p.id}>
+                  {idx > 0 && <Divider component="li" />}
+                  <ListItem
+                    sx={{
+                      px: 2,
+                      py: 1.5,
+                      borderRadius: 1,
+                      '&:hover': { bgcolor: 'action.hover' },
+                    }}
+                    secondaryAction={
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <IconButton size="small" onClick={() => handleStartEdit(p)}>
+                          <Edit fontSize="small" />
+                        </IconButton>
+                        {partners.length > 1 && (
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => {
+                              if (confirm(`Delete "${p.name}"?`)) onDeletePartner(p.id);
+                            }}
+                          >
+                            <DeleteOutlined fontSize="small" />
+                          </IconButton>
+                        )}
+                      </Box>
+                    }
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: p.avatarColor || 'primary.main', fontWeight: 700, fontSize: '0.9rem' }}>
+                        {p.name.charAt(0).toUpperCase()}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                          {p.name}
+                        </Typography>
+                      }
+                      secondary={
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3, mt: 0.3 }}>
+                          {p.phone && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Phone style={{ fontSize: 12 }} /> {p.phone}
+                            </Typography>
+                          )}
+                          {p.email && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Mail style={{ fontSize: 12 }} /> {p.email}
+                            </Typography>
+                          )}
+                          {p.notes && (
+                            <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                              {p.notes}
+                            </Typography>
+                          )}
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                </React.Fragment>
               ))}
-            </div>
-          </div>
+            </List>
+          </Box>
 
-        </div>
+        </Box>
+      </DialogContent>
 
-        {/* Footer */}
-        <div className="px-6 py-3 border-t border-slate-800/80 bg-slate-900/60 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 rounded-xl"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
+      <DialogActions sx={{ p: 2 }}>
+        <Button onClick={onClose} color="inherit">
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };

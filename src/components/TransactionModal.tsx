@@ -1,5 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { X, ArrowDownRight, ArrowUpLeft, TrendingUp, RefreshCw } from 'lucide-react';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  IconButton,
+  TextField,
+  MenuItem,
+  Grid,
+  Typography,
+  Box,
+  ToggleButtonGroup,
+  ToggleButton,
+  Alert,
+  InputAdornment,
+  Chip,
+} from '@mui/material';
+import {
+  Close,
+  CallMade,
+  CallReceived,
+  TrendingUp,
+  Loop,
+} from '@mui/icons-material';
 import { CurrencyConfig, Partner, Transaction, TransactionType } from '../types';
 
 interface TransactionModalProps {
@@ -33,13 +57,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     if (editingTransaction) {
       setType(editingTransaction.type);
       setPartnerId(editingTransaction.partnerId);
-      setAmount(editingTransaction.amount.toString());
+      setAmount(editingTransaction.amount ? editingTransaction.amount.toString() : '');
       setDate(editingTransaction.date);
       setDescription(editingTransaction.description || '');
       setPaymentMethod(editingTransaction.paymentMethod || 'Bank Transfer');
       setReference(editingTransaction.reference || '');
     } else {
-      // Default reset
       setType('INVESTMENT_OUT');
       setPartnerId(partners[0]?.id || '');
       setAmount('');
@@ -49,8 +72,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setReference('');
     }
   }, [editingTransaction, isOpen, partners]);
-
-  if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,267 +115,195 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-      <div 
-        className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl shadow-black/80 overflow-hidden flex flex-col max-h-[90vh]"
-        role="dialog"
-        aria-modal="true"
-      >
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-slate-900/60">
-          <div>
-            <h2 className="text-lg font-bold text-white">
+    <Dialog open={isOpen} onClose={onClose} maxWidth="sm" fullWidth>
+      <form onSubmit={handleSubmit}>
+        <DialogTitle sx={{ m: 0, p: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {editingTransaction ? 'Edit Transaction' : 'Record Transaction'}
-            </h2>
-            <p className="text-xs text-slate-400">
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
               Update capital investment, returns, or profit payouts
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+            </Typography>
+          </Box>
+          <IconButton onClick={onClose} size="small">
+            <Close fontSize="small" />
+          </IconButton>
+        </DialogTitle>
 
-        {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto px-6 py-5 space-y-4">
-          
-          {/* Type Selector Tabs */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-              Transaction Category
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {/* 1. Invest Out */}
-              <button
-                type="button"
-                onClick={() => setType('INVESTMENT_OUT')}
-                className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-xs font-medium transition-all ${
-                  type === 'INVESTMENT_OUT'
-                    ? 'bg-blue-600/20 border-blue-500 text-blue-300 shadow-md shadow-blue-500/10'
-                    : 'bg-slate-800/50 border-slate-700/60 text-slate-400 hover:bg-slate-800'
-                }`}
+        <DialogContent dividers sx={{ p: 2.5 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            
+            {/* Type Selector */}
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', display: 'block', mb: 1 }}>
+                Transaction Category
+              </Typography>
+              <ToggleButtonGroup
+                value={type}
+                exclusive
+                onChange={(_, val) => val && setType(val)}
+                fullWidth
+                size="small"
+                sx={{
+                  '& .MuiToggleButton-root': {
+                    py: 1,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.8rem',
+                  },
+                }}
               >
-                <ArrowDownRight className="h-4 w-4 mb-1 text-blue-400" />
-                <span>Invest Out</span>
-                <span className="text-[10px] opacity-70">Lend capital</span>
-              </button>
+                <ToggleButton value="INVESTMENT_OUT" color="primary">
+                  <CallMade sx={{ mr: 0.5, fontSize: 16 }} /> Invest Out
+                </ToggleButton>
+                <ToggleButton value="PRINCIPAL_RETURN" color="warning">
+                  <CallReceived sx={{ mr: 0.5, fontSize: 16 }} /> Principal Back
+                </ToggleButton>
+                <ToggleButton value="PROFIT_PAYOUT" color="success">
+                  <TrendingUp sx={{ mr: 0.5, fontSize: 16 }} /> Profit Share
+                </ToggleButton>
+                <ToggleButton value="REINVEST" color="secondary">
+                  <Loop sx={{ mr: 0.5, fontSize: 16 }} /> Reinvest
+                </ToggleButton>
+              </ToggleButtonGroup>
 
-              {/* 2. Principal Return */}
-              <button
-                type="button"
-                onClick={() => setType('PRINCIPAL_RETURN')}
-                className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-xs font-medium transition-all ${
-                  type === 'PRINCIPAL_RETURN'
-                    ? 'bg-amber-600/20 border-amber-500 text-amber-300 shadow-md shadow-amber-500/10'
-                    : 'bg-slate-800/50 border-slate-700/60 text-slate-400 hover:bg-slate-800'
-                }`}
+              {/* Context Alert */}
+              <Alert 
+                severity={
+                  type === 'PROFIT_PAYOUT' ? 'success' : 
+                  type === 'PRINCIPAL_RETURN' ? 'warning' : 
+                  type === 'REINVEST' ? 'secondary' as any : 'info'
+                }
+                sx={{ mt: 1.5, py: 0.2, '& .MuiAlert-message': { fontSize: '0.78rem' } }}
               >
-                <ArrowUpLeft className="h-4 w-4 mb-1 text-amber-400" />
-                <span>Principal Back</span>
-                <span className="text-[10px] opacity-70">Refunds principal</span>
-              </button>
+                {type === 'INVESTMENT_OUT' && 'Increases active capital lent to the partner.'}
+                {type === 'PRINCIPAL_RETURN' && 'Reduces outstanding debt/capital. Does not inflate profit metrics.'}
+                {type === 'PROFIT_PAYOUT' && 'Your profit earnings! Does not change principal owed.'}
+                {type === 'REINVEST' && 'Records profit earned and rolls it directly into active principal.'}
+              </Alert>
+            </Box>
 
-              {/* 3. Profit Payout */}
-              <button
-                type="button"
-                onClick={() => setType('PROFIT_PAYOUT')}
-                className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-xs font-medium transition-all ${
-                  type === 'PROFIT_PAYOUT'
-                    ? 'bg-emerald-600/20 border-emerald-500 text-emerald-300 shadow-md shadow-emerald-500/10'
-                    : 'bg-slate-800/50 border-slate-700/60 text-slate-400 hover:bg-slate-800'
-                }`}
-              >
-                <TrendingUp className="h-4 w-4 mb-1 text-emerald-400" />
-                <span>Profit Share</span>
-                <span className="text-[10px] opacity-70">Earnings received</span>
-              </button>
-
-              {/* 4. Reinvest */}
-              <button
-                type="button"
-                onClick={() => setType('REINVEST')}
-                className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-xs font-medium transition-all ${
-                  type === 'REINVEST'
-                    ? 'bg-purple-600/20 border-purple-500 text-purple-300 shadow-md shadow-purple-500/10'
-                    : 'bg-slate-800/50 border-slate-700/60 text-slate-400 hover:bg-slate-800'
-                }`}
-              >
-                <RefreshCw className="h-4 w-4 mb-1 text-purple-400" />
-                <span>Reinvest</span>
-                <span className="text-[10px] opacity-70">Roll profit in</span>
-              </button>
-            </div>
-
-            {/* Impact Banner */}
-            <div className="mt-2 text-[11px] px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/50 text-slate-300">
-              {type === 'INVESTMENT_OUT' && (
-                <span>ℹ️ <strong>Invest Out</strong> increases your outstanding principal with the partner.</span>
-              )}
-              {type === 'PRINCIPAL_RETURN' && (
-                <span>ℹ️ <strong>Principal Back</strong> reduces outstanding debt/capital. Does not inflate profit metrics.</span>
-              )}
-              {type === 'PROFIT_PAYOUT' && (
-                <span>ℹ️ <strong>Profit Share</strong> counts towards your return on investment. Principal balance remains unchanged.</span>
-              )}
-              {type === 'REINVEST' && (
-                <span>ℹ️ <strong>Reinvest</strong> records profit earned and automatically adds it to your active principal.</span>
-              )}
-            </div>
-          </div>
-
-          {/* Amount Input */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-              Amount ({currency.symbol})
-            </label>
-            <div className="relative rounded-xl shadow-sm">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400 font-bold">
-                {currency.symbol}
-              </div>
-              <input
+            {/* Amount & Quick Add */}
+            <Box>
+              <TextField
+                label="Amount"
                 type="number"
-                step="any"
                 required
+                fullWidth
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-4 py-2.5 text-white font-semibold text-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent placeholder:text-slate-600"
+                slotProps={{
+                  input: {
+                    startAdornment: <InputAdornment position="start">{currency.symbol}</InputAdornment>,
+                  },
+                  htmlInput: { min: '0', step: 'any' },
+                }}
               />
-            </div>
-            {/* Quick Presets */}
-            <div className="flex items-center gap-1.5 mt-2 overflow-x-auto pb-1">
-              <span className="text-[11px] text-slate-400 mr-1">Quick:</span>
-              {[500, 1000, 2500, 5000, 10000].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => addPresetAmount(preset)}
-                  className="px-2 py-0.5 rounded-md bg-slate-800 text-[11px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
-                >
-                  +{preset}
-                </button>
-              ))}
-            </div>
-          </div>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">Quick add:</Typography>
+                {[500, 1000, 2500, 5000].map((val) => (
+                  <Chip
+                    key={val}
+                    label={`+${val}`}
+                    size="small"
+                    onClick={() => addPresetAmount(val)}
+                    clickable
+                    variant="outlined"
+                    sx={{ height: 24, fontSize: '0.75rem' }}
+                  />
+                ))}
+              </Box>
+            </Box>
 
-          {/* Partner & Date Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Partner */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                  Partner / Borrower
-                </label>
-                <button
-                  type="button"
-                  onClick={onOpenPartnerModal}
-                  className="text-[11px] text-emerald-400 hover:underline"
-                >
-                  + New Partner
-                </button>
-              </div>
-              <div className="relative">
-                <select
+            {/* Partner & Date Grid */}
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600 }}>Partner / Borrower</Typography>
+                  <Button size="small" onClick={onOpenPartnerModal} sx={{ p: 0, minWidth: 0, fontSize: '0.75rem' }}>
+                    + New
+                  </Button>
+                </Box>
+                <TextField
+                  select
                   required
+                  fullWidth
                   value={partnerId}
                   onChange={(e) => setPartnerId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                 >
                   {partners.map((p) => (
-                    <option key={p.id} value={p.id}>
+                    <MenuItem key={p.id} value={p.id}>
                       {p.name}
-                    </option>
+                    </MenuItem>
                   ))}
-                </select>
-              </div>
-            </div>
+                </TextField>
+              </Grid>
 
-            {/* Date */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                Date
-              </label>
-              <div className="relative">
-                <input
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                  Date
+                </Typography>
+                <TextField
                   type="date"
                   required
+                  fullWidth
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                 />
-              </div>
-            </div>
-          </div>
+              </Grid>
+            </Grid>
 
-          {/* Description */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-              Description / Memo
-            </label>
-            <input
-              type="text"
+            {/* Description */}
+            <TextField
+              label="Description / Memo"
+              fullWidth
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={getDefaultDescription(type)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
-          </div>
 
-          {/* Payment Method & Reference */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                Payment Channel
-              </label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-              >
-                <option value="Bank Transfer">Bank Transfer / Wire</option>
-                <option value="Cash">Cash in hand</option>
-                <option value="Check">Check / Pay order</option>
-                <option value="Online / Mobile">Online / Mobile Wallet</option>
-                <option value="Crypto">Crypto</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
+            {/* Payment Method & Reference */}
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  select
+                  label="Payment Channel"
+                  fullWidth
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                >
+                  <MenuItem value="Bank Transfer">Bank Transfer / Wire</MenuItem>
+                  <MenuItem value="Cash">Cash in hand</MenuItem>
+                  <MenuItem value="Check">Check / Pay order</MenuItem>
+                  <MenuItem value="Online / Mobile">Online / Mobile Wallet</MenuItem>
+                  <MenuItem value="Crypto">Crypto</MenuItem>
+                  <MenuItem value="Other">Other</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Reference / Receipt #"
+                  fullWidth
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  placeholder="e.g. TXN-1029"
+                />
+              </Grid>
+            </Grid>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                Reference / Receipt #
-              </label>
-              <input
-                type="text"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                placeholder="e.g. TXN-1029, Check #4"
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-          </div>
+          </Box>
+        </DialogContent>
 
-          {/* Action Buttons */}
-          <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-800/80">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2 text-xs font-bold text-slate-950 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
-            >
-              {editingTransaction ? 'Update Entry' : 'Save Transaction'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={onClose} color="inherit">
+            Cancel
+          </Button>
+          <Button type="submit" variant="contained" color="primary">
+            {editingTransaction ? 'Update Entry' : 'Save Transaction'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
   );
 };

@@ -1,12 +1,22 @@
 import React from 'react';
-import { 
-  DollarSign, 
-  TrendingUp, 
-  ArrowUpRight, 
-  ShieldCheck, 
-  AlertCircle,
-  PiggyBank
-} from 'lucide-react';
+import {
+  Grid,
+  Card,
+  CardContent,
+  Typography,
+  Box,
+  Avatar,
+  Chip,
+  LinearProgress,
+  useTheme,
+} from '@mui/material';
+import {
+  AccountBalanceWalletOutlined,
+  TrendingUp,
+  SavingsOutlined,
+  CheckCircleOutlined,
+  HourglassEmpty,
+} from '@mui/icons-material';
 import { CurrencyConfig, FinancialSummary } from '../types';
 import { formatCurrency } from '../utils/calculations';
 
@@ -16,149 +26,201 @@ interface KpiCardsProps {
 }
 
 export const KpiCards: React.FC<KpiCardsProps> = ({ summary, currency }) => {
+  const theme = useTheme();
   const returnRate = summary.totalInvested > 0 
     ? (summary.totalPrincipalReturned / summary.totalInvested) * 100 
     : 0;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <Grid container spacing={2.5}>
       
       {/* 1. Active Capital Deployed (Principal) */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950/90 border border-slate-800 p-5 shadow-lg shadow-black/40 hover:border-slate-700 transition-all">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Active Capital Out
-          </span>
-          <div className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-            <DollarSign className="h-4 w-4" />
-          </div>
-        </div>
+      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Card sx={{ height: '100%' }}>
+          <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+              <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.05em' }}>
+                Active Capital Out
+              </Typography>
+              <Avatar
+                variant="rounded"
+                sx={{
+                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(237, 108, 2, 0.15)' : 'rgba(237, 108, 2, 0.1)',
+                  color: 'warning.main',
+                  width: 36,
+                  height: 36,
+                  borderRadius: 2,
+                }}
+              >
+                <AccountBalanceWalletOutlined fontSize="small" />
+              </Avatar>
+            </Box>
 
-        <div className="mt-3">
-          <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            {formatCurrency(summary.activeCapital, currency)}
-          </div>
-          <p className="mt-1 text-xs text-slate-400">
-            Principal currently held by partner
-          </p>
-        </div>
+            <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+              {formatCurrency(summary.activeCapital, currency)}
+            </Typography>
 
-        {/* Mini progress bar */}
-        <div className="mt-4 pt-3 border-t border-slate-800/80">
-          <div className="flex justify-between text-[11px] text-slate-400 mb-1">
-            <span>Principal Returned</span>
-            <span className="font-medium text-slate-300">{returnRate.toFixed(1)}%</span>
-          </div>
-          <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-            <div 
-              className="bg-amber-400 h-full rounded-full transition-all duration-500" 
-              style={{ width: `${Math.min(100, Math.max(0, returnRate))}%` }}
-            />
-          </div>
-        </div>
-      </div>
+            <Typography variant="caption" color="text.secondary">
+              Principal currently with partner
+            </Typography>
+
+            <Box sx={{ mt: 2.5, pt: 1.5, borderTop: `1px solid ${theme.palette.divider}` }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography variant="caption" color="text.secondary">Principal Repaid</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 600 }}>{returnRate.toFixed(1)}%</Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={Math.min(100, Math.max(0, returnRate))}
+                color="warning"
+                sx={{ height: 6, borderRadius: 3 }}
+              />
+            </Box>
+          </CardContent>
+        </Card>
+      </Grid>
 
       {/* 2. Total Profit Realized */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950/90 border border-slate-800 p-5 shadow-lg shadow-black/40 hover:border-emerald-500/30 transition-all">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-            Total Profit Realized
-          </span>
-          <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-            <TrendingUp className="h-4 w-4" />
-          </div>
-        </div>
+      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Card sx={{ height: '100%' }}>
+          <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+              <Typography variant="overline" color="success.main" sx={{ fontWeight: 700, letterSpacing: '0.05em' }}>
+                Total Profit Realized
+              </Typography>
+              <Avatar
+                variant="rounded"
+                sx={{
+                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(46, 125, 50, 0.15)' : 'rgba(46, 125, 50, 0.1)',
+                  color: 'success.main',
+                  width: 36,
+                  height: 36,
+                  borderRadius: 2,
+                }}
+              >
+                <TrendingUp fontSize="small" />
+              </Avatar>
+            </Box>
 
-        <div className="mt-3">
-          <div className="text-2xl sm:text-3xl font-extrabold text-emerald-400 tracking-tight">
-            +{formatCurrency(summary.totalProfitRealized, currency)}
-          </div>
-          <div className="mt-1 flex items-center gap-1.5">
-            <span className="inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-              <ArrowUpRight className="h-3 w-3 mr-0.5" />
-              {summary.roiPercentage.toFixed(1)}% ROI
-            </span>
-            <span className="text-xs text-slate-400">on invested capital</span>
-          </div>
-        </div>
+            <Typography variant="h5" color="success.main" sx={{ fontWeight: 700, mb: 0.5 }}>
+              +{formatCurrency(summary.totalProfitRealized, currency)}
+            </Typography>
 
-        <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-          <span>Profit Payouts</span>
-          <span className="font-semibold text-emerald-400">Direct Earnings</span>
-        </div>
-      </div>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+              <Chip
+                label={`+${summary.roiPercentage.toFixed(1)}% ROI`}
+                size="small"
+                color="success"
+                sx={{ height: 20, fontSize: '0.7rem' }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                return on investment
+              </Typography>
+            </Box>
 
-      {/* 3. Net Cash Position (Break-Even) */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950/90 border border-slate-800 p-5 shadow-lg shadow-black/40 hover:border-slate-700 transition-all">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Net Cash Flow
-          </span>
-          <div className={`h-8 w-8 rounded-lg border flex items-center justify-center ${
-            summary.netCashFlow >= 0 
-              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-              : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-          }`}>
-            {summary.netCashFlow >= 0 ? <ShieldCheck className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-          </div>
-        </div>
+            <Box sx={{ mt: 2.5, pt: 1.5, borderTop: `1px solid ${theme.palette.divider}`, display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="caption" color="text.secondary">Profit Type</Typography>
+              <Typography variant="caption" color="success.main" sx={{ fontWeight: 600 }}>Pure Yield</Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      </Grid>
 
-        <div className="mt-3">
-          <div className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${
-            summary.netCashFlow >= 0 ? 'text-teal-300' : 'text-slate-200'
-          }`}>
-            {summary.netCashFlow >= 0 ? '+' : ''}
-            {formatCurrency(summary.netCashFlow, currency)}
-          </div>
-          <p className="mt-1 text-xs text-slate-400">
-            {summary.netCashFlow >= 0 ? (
-              <span className="text-emerald-400 font-medium flex items-center gap-1">
-                ✓ 100% Capital Recovered (Pure Profit)
-              </span>
-            ) : (
-              <span>
-                {formatCurrency(Math.abs(summary.netCashFlow), currency)} to reach break-even
-              </span>
-            )}
-          </p>
-        </div>
+      {/* 3. Net Cash Flow (Break-Even Status) */}
+      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Card sx={{ height: '100%' }}>
+          <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+              <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.05em' }}>
+                Net Cash Position
+              </Typography>
+              <Avatar
+                variant="rounded"
+                sx={{
+                  bgcolor: summary.netCashFlow >= 0 
+                    ? (theme.palette.mode === 'dark' ? 'rgba(46, 125, 50, 0.15)' : 'rgba(46, 125, 50, 0.1)')
+                    : (theme.palette.mode === 'dark' ? 'rgba(2, 136, 209, 0.15)' : 'rgba(2, 136, 209, 0.1)'),
+                  color: summary.netCashFlow >= 0 ? 'success.main' : 'info.main',
+                  width: 36,
+                  height: 36,
+                  borderRadius: 2,
+                }}
+              >
+                {summary.netCashFlow >= 0 ? <CheckCircleOutlined fontSize="small" /> : <HourglassEmpty fontSize="small" />}
+              </Avatar>
+            </Box>
 
-        <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-          <span>Cash In vs Cash Out</span>
-          <span className={`font-semibold ${summary.netCashFlow >= 0 ? 'text-teal-400' : 'text-slate-300'}`}>
-            {summary.recoveryPercentage.toFixed(1)}% Recovered
-          </span>
-        </div>
-      </div>
+            <Typography
+              variant="h5"
+              color={summary.netCashFlow >= 0 ? 'success.main' : 'text.primary'}
+              sx={{ fontWeight: 700, mb: 0.5 }}
+            >
+              {summary.netCashFlow >= 0 ? '+' : ''}
+              {formatCurrency(summary.netCashFlow, currency)}
+            </Typography>
 
-      {/* 4. Total Capital In/Out Turnover */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950/90 border border-slate-800 p-5 shadow-lg shadow-black/40 hover:border-slate-700 transition-all">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Total Capital Injected
-          </span>
-          <div className="h-8 w-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-            <PiggyBank className="h-4 w-4" />
-          </div>
-        </div>
+            <Typography variant="caption" color="text.secondary">
+              {summary.netCashFlow >= 0 
+                ? '100% of capital recovered (Profit zone)' 
+                : `${formatCurrency(Math.abs(summary.netCashFlow), currency)} to reach break-even`}
+            </Typography>
 
-        <div className="mt-3">
-          <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            {formatCurrency(summary.totalInvested, currency)}
-          </div>
-          <p className="mt-1 text-xs text-slate-400">
-            Cumulative money deployed to date
-          </p>
-        </div>
+            <Box sx={{ mt: 2.5, pt: 1.5, borderTop: `1px solid ${theme.palette.divider}` }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography variant="caption" color="text.secondary">Capital Recovery</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 600 }}>{summary.recoveryPercentage.toFixed(1)}%</Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={Math.min(100, Math.max(0, summary.recoveryPercentage))}
+                color={summary.netCashFlow >= 0 ? 'success' : 'primary'}
+                sx={{ height: 6, borderRadius: 3 }}
+              />
+            </Box>
+          </CardContent>
+        </Card>
+      </Grid>
 
-        <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-          <span>Total Principal Paid Back</span>
-          <span className="font-semibold text-slate-200">
-            {formatCurrency(summary.totalPrincipalReturned, currency)}
-          </span>
-        </div>
-      </div>
+      {/* 4. Total Capital Injected */}
+      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Card sx={{ height: '100%' }}>
+          <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+              <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.05em' }}>
+                Total Invested
+              </Typography>
+              <Avatar
+                variant="rounded"
+                sx={{
+                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(25, 118, 210, 0.15)' : 'rgba(25, 118, 210, 0.1)',
+                  color: 'primary.main',
+                  width: 36,
+                  height: 36,
+                  borderRadius: 2,
+                }}
+              >
+                <SavingsOutlined fontSize="small" />
+              </Avatar>
+            </Box>
 
-    </div>
+            <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+              {formatCurrency(summary.totalInvested, currency)}
+            </Typography>
+
+            <Typography variant="caption" color="text.secondary">
+              Cumulative funds committed to date
+            </Typography>
+
+            <Box sx={{ mt: 2.5, pt: 1.5, borderTop: `1px solid ${theme.palette.divider}`, display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="caption" color="text.secondary">Principal Repaid</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                {formatCurrency(summary.totalPrincipalReturned, currency)}
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      </Grid>
+
+    </Grid>
   );
 };
