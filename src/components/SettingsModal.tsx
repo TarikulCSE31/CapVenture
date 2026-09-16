@@ -219,7 +219,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </IconButton>
       </DialogTitle>
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', px: { xs: 1.5, sm: 2.5 } }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', px: { xs: 2, sm: 2.5 } }}>
         <Tabs
           value={tabIndex}
           onChange={(_, v) => setTabIndex(v)}
@@ -231,12 +231,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               textTransform: 'none',
               fontWeight: 600,
               fontSize: { xs: '0.78rem', sm: '0.85rem' },
-              minHeight: 44,
-              px: { xs: 1.5, sm: 2 },
+              minHeight: 46,
+              px: { xs: 1.8, sm: 2.2 },
             },
           }}
         >
-          <Tab icon={<Palette fontSize="small" />} iconPosition="start" label="Appearance" />
+          <Tab icon={<Palette fontSize="small" />} iconPosition="start" label="Preferences" />
           <Tab icon={<CloudDone fontSize="small" />} iconPosition="start" label="Appwrite Cloud" />
           <Tab icon={<Storage fontSize="small" />} iconPosition="start" label="Backup & Data" />
           <Tab icon={<Language fontSize="small" />} iconPosition="start" label="Free Hosting" />

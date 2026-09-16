@@ -36,6 +36,9 @@ import {
   Logout,
   Storefront,
   SwapHoriz,
+  PaidOutlined,
+  ChevronRight,
+  Check,
 } from '@mui/icons-material';
 import { AuthUser, CurrencyConfig, DEFAULT_CURRENCIES, Partner, UserRole } from '../types';
 
@@ -81,6 +84,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const theme = useTheme();
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
   const [anchorElSettings, setAnchorElSettings] = React.useState<null | HTMLElement>(null);
+  const [anchorElCurrency, setAnchorElCurrency] = React.useState<null | HTMLElement>(null);
 
   const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElUser(event.currentTarget);
@@ -96,6 +100,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const handleCloseSettingsMenu = () => {
     setAnchorElSettings(null);
+    setAnchorElCurrency(null);
+  };
+
+  const handleOpenCurrencyMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorElCurrency(event.currentTarget);
+  };
+
+  const handleCloseCurrencyMenu = () => {
+    setAnchorElCurrency(null);
   };
 
   const isInvestor = activeRole === 'INVESTOR';
@@ -252,24 +265,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </FormControl>
           )}
 
-          {/* Currency Dropdown */}
-          <FormControl size="small" sx={{ width: 95, display: { xs: 'none', lg: 'block' } }}>
-            <Select
-              value={currentCurrency.code}
-              onChange={(e) => {
-                const found = DEFAULT_CURRENCIES.find((c) => c.code === e.target.value);
-                if (found) onSelectCurrency(found);
-              }}
-              sx={{ fontSize: '0.8125rem' }}
-            >
-              {DEFAULT_CURRENCIES.map((c) => (
-                <MenuItem key={c.code} value={c.code}>
-                  {c.symbol} {c.code}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
           {/* Settings Button */}
           <Tooltip title="Settings & Preferences">
             <IconButton
@@ -291,30 +286,45 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClose={handleCloseSettingsMenu}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            slotProps={{ paper: { elevation: 4, sx: { mt: 1, minWidth: 240, borderRadius: 2, p: 0.5 } } }}
+            slotProps={{
+              paper: {
+                elevation: 6,
+                sx: {
+                  mt: 1,
+                  minWidth: 260,
+                  borderRadius: 2.5,
+                  p: 0.75,
+                },
+              },
+            }}
           >
-            <Box sx={{ px: 1.5, py: 1 }}>
-              <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>
-                Quick Settings
+            <Box sx={{ px: 2, pt: 1, pb: 0.5 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.75, color: 'text.secondary', fontSize: '0.7rem' }}>
+                Preferences
               </Typography>
             </Box>
 
-            {/* Theme Toggle Item */}
+            {/* 1. Theme Toggle */}
             <MenuItem
               onClick={() => {
                 onToggleTheme();
               }}
-              sx={{ py: 1, display: 'flex', justifyContent: 'space-between' }}
+              sx={{
+                py: 1,
+                px: 2,
+                borderRadius: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+              }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <ListItemIcon sx={{ minWidth: 28, color: theme.palette.mode === 'dark' ? 'warning.light' : 'primary.main' }}>
-                  {theme.palette.mode === 'dark' ? <Brightness7 fontSize="small" /> : <Brightness4 fontSize="small" />}
-                </ListItemIcon>
-                <ListItemText
-                  primary={<Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Theme Mode</Typography>}
-                  secondary={<Typography variant="caption" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{theme.palette.mode === 'dark' ? 'Dark Mode' : 'Light Mode'}</Typography>}
-                />
-              </Box>
+              <ListItemIcon sx={{ minWidth: 36, color: theme.palette.mode === 'dark' ? 'warning.light' : 'primary.main' }}>
+                {theme.palette.mode === 'dark' ? <Brightness7 fontSize="small" /> : <Brightness4 fontSize="small" />}
+              </ListItemIcon>
+              <ListItemText
+                sx={{ my: 0, flex: 1 }}
+                primary={<Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Theme Mode</Typography>}
+                secondary={<Typography variant="caption" sx={{ fontSize: '0.725rem', color: 'text.secondary' }}>{theme.palette.mode === 'dark' ? 'Dark Mode' : 'Light Mode'}</Typography>}
+              />
               <Switch
                 size="small"
                 checked={theme.palette.mode === 'dark'}
@@ -322,46 +332,148 @@ export const Navbar: React.FC<NavbarProps> = ({
                   e.stopPropagation();
                   onToggleTheme();
                 }}
+                sx={{ mr: -0.5 }}
               />
             </MenuItem>
 
-            {/* Manage Partners (Investor Mode) */}
+            {/* 2. Currency Selector Item */}
+            <MenuItem
+              onClick={handleOpenCurrencyMenu}
+              sx={{
+                py: 1,
+                px: 2,
+                borderRadius: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 36, color: 'success.main' }}>
+                <PaidOutlined fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                sx={{ my: 0, flex: 1 }}
+                primary={<Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Currency</Typography>}
+                secondary={<Typography variant="caption" sx={{ fontSize: '0.725rem', color: 'text.secondary' }}>{currentCurrency.label.split('(')[0].trim()}</Typography>}
+              />
+              <Chip
+                size="small"
+                label={`${currentCurrency.symbol} ${currentCurrency.code}`}
+                color="primary"
+                variant="outlined"
+                sx={{ height: 22, fontSize: '0.725rem', fontWeight: 700, mr: 0.5 }}
+              />
+              <ChevronRight fontSize="small" sx={{ color: 'text.secondary', ml: -0.5 }} />
+            </MenuItem>
+
+            {/* 3. Manage Partners (Investor Mode) */}
             {isInvestor && (
               <MenuItem
                 onClick={() => {
                   handleCloseSettingsMenu();
                   onOpenPartnerModal();
                 }}
-                sx={{ py: 1 }}
+                sx={{
+                  py: 1,
+                  px: 2,
+                  borderRadius: 1.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
               >
-                <ListItemIcon sx={{ minWidth: 28, color: 'primary.main' }}>
+                <ListItemIcon sx={{ minWidth: 36, color: 'primary.main' }}>
                   <PeopleOutlined fontSize="small" />
                 </ListItemIcon>
                 <ListItemText
+                  sx={{ my: 0, flex: 1 }}
                   primary={<Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Manage Partners</Typography>}
-                  secondary={<Typography variant="caption" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{`${partners.length} active partner${partners.length === 1 ? '' : 's'}`}</Typography>}
+                  secondary={<Typography variant="caption" sx={{ fontSize: '0.725rem', color: 'text.secondary' }}>{`${partners.length} active partner${partners.length === 1 ? '' : 's'}`}</Typography>}
                 />
               </MenuItem>
             )}
 
-            <Divider sx={{ my: 0.5 }} />
+            <Divider sx={{ my: 0.8, mx: 1 }} />
 
-            {/* System & Cloud Settings */}
+            {/* 4. Full Settings Modal */}
             <MenuItem
               onClick={() => {
                 handleCloseSettingsMenu();
                 onOpenSettingsModal();
               }}
-              sx={{ py: 1 }}
+              sx={{
+                py: 1,
+                px: 2,
+                borderRadius: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+              }}
             >
-              <ListItemIcon sx={{ minWidth: 28 }}>
+              <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
                 <SettingsOutlined fontSize="small" />
               </ListItemIcon>
               <ListItemText
+                sx={{ my: 0, flex: 1 }}
                 primary={<Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>All Settings & Sync</Typography>}
-                secondary={<Typography variant="caption" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Preferences, Cloud, Backups</Typography>}
+                secondary={<Typography variant="caption" sx={{ fontSize: '0.725rem', color: 'text.secondary' }}>Cloud, Data Backup, Hosting</Typography>}
               />
             </MenuItem>
+          </Menu>
+
+          {/* Currency Submenu */}
+          <Menu
+            anchorEl={anchorElCurrency}
+            open={Boolean(anchorElCurrency)}
+            onClose={handleCloseCurrencyMenu}
+            anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            slotProps={{
+              paper: {
+                elevation: 6,
+                sx: {
+                  minWidth: 220,
+                  maxHeight: 340,
+                  borderRadius: 2.5,
+                  p: 0.75,
+                },
+              },
+            }}
+          >
+            <Box sx={{ px: 2, py: 1 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', fontSize: '0.7rem' }}>
+                Select Currency
+              </Typography>
+            </Box>
+            {DEFAULT_CURRENCIES.map((c) => {
+              const isSelected = currentCurrency.code === c.code;
+              return (
+                <MenuItem
+                  key={c.code}
+                  selected={isSelected}
+                  onClick={() => {
+                    onSelectCurrency(c);
+                    handleCloseCurrencyMenu();
+                    handleCloseSettingsMenu();
+                  }}
+                  sx={{
+                    py: 0.8,
+                    px: 2,
+                    borderRadius: 1.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: isSelected ? 'primary.main' : 'text.primary', minWidth: 26 }}>
+                      {c.symbol}
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.825rem', fontWeight: isSelected ? 600 : 400 }}>
+                      {c.code} - {c.label.split('(')[0].trim()}
+                    </Typography>
+                  </Box>
+                  {isSelected && <Check fontSize="small" color="primary" sx={{ fontSize: '1.1rem', ml: 1 }} />}
+                </MenuItem>
+              );
+            })}
           </Menu>
 
           {/* User Account / Sign In */}
