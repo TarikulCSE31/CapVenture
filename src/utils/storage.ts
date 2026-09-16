@@ -139,9 +139,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
 };
 
 // Storage operations
-export function getStoredPartners(): Partner[] {
+export function getStoredPartners(workspaceId?: string): Partner[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.PARTNERS);
+    const key = workspaceId ? `${STORAGE_KEYS.PARTNERS}_${workspaceId}` : STORAGE_KEYS.PARTNERS;
+    let raw = localStorage.getItem(key);
+    if (!raw && workspaceId) {
+      raw = localStorage.getItem(STORAGE_KEYS.PARTNERS);
+    }
     if (!raw) {
       return [];
     }
@@ -151,17 +155,25 @@ export function getStoredPartners(): Partner[] {
   }
 }
 
-export function saveStoredPartners(partners: Partner[]): void {
+export function saveStoredPartners(partners: Partner[], workspaceId?: string): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify(partners));
+    const serialized = JSON.stringify(partners);
+    localStorage.setItem(STORAGE_KEYS.PARTNERS, serialized);
+    if (workspaceId) {
+      localStorage.setItem(`${STORAGE_KEYS.PARTNERS}_${workspaceId}`, serialized);
+    }
   } catch (err) {
     console.error('Failed to save partners:', err);
   }
 }
 
-export function getStoredTransactions(): Transaction[] {
+export function getStoredTransactions(workspaceId?: string): Transaction[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+    const key = workspaceId ? `${STORAGE_KEYS.TRANSACTIONS}_${workspaceId}` : STORAGE_KEYS.TRANSACTIONS;
+    let raw = localStorage.getItem(key);
+    if (!raw && workspaceId) {
+      raw = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+    }
     if (!raw) {
       return [];
     }
@@ -171,9 +183,13 @@ export function getStoredTransactions(): Transaction[] {
   }
 }
 
-export function saveStoredTransactions(transactions: Transaction[]): void {
+export function saveStoredTransactions(transactions: Transaction[], workspaceId?: string): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
+    const serialized = JSON.stringify(transactions);
+    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, serialized);
+    if (workspaceId) {
+      localStorage.setItem(`${STORAGE_KEYS.TRANSACTIONS}_${workspaceId}`, serialized);
+    }
   } catch (err) {
     console.error('Failed to save transactions:', err);
   }

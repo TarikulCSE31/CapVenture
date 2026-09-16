@@ -1,5 +1,5 @@
 import { Client, Databases, Account, ID, Query } from 'appwrite';
-import { AppwriteConfig, AuthUser, Partner, Transaction, UserRole } from '../types';
+import { AppwriteConfig, AuthUser, CompanyRole, Partner, Transaction, UserRole } from '../types';
 
 let cachedClient: Client | null = null;
 let cachedEndpoint = '';
@@ -38,11 +38,15 @@ export async function getCurrentAppwriteUser(config: AppwriteConfig): Promise<Au
     const account = getAccount(config);
     const user = await account.get();
     let userRole: UserRole = 'INVESTOR';
+    let companyId: string | undefined = undefined;
+    let companyName: string | undefined = undefined;
+    let companyRole: CompanyRole | undefined = undefined;
     try {
       const prefs = await account.getPrefs();
-      if ((prefs as any)?.role) {
-        userRole = (prefs as any).role;
-      }
+      if ((prefs as any)?.role) userRole = (prefs as any).role;
+      if ((prefs as any)?.companyId) companyId = (prefs as any).companyId;
+      if ((prefs as any)?.companyName) companyName = (prefs as any).companyName;
+      if ((prefs as any)?.companyRole) companyRole = (prefs as any).companyRole;
     } catch {
       // ignore
     }
@@ -51,6 +55,9 @@ export async function getCurrentAppwriteUser(config: AppwriteConfig): Promise<Au
       name: user.name || user.email.split('@')[0],
       email: user.email,
       role: userRole,
+      companyId,
+      companyName,
+      companyRole,
     };
   } catch {
     return null;
@@ -131,16 +138,30 @@ export async function logoutAppwrite(config: AppwriteConfig): Promise<void> {
 }
 
 /**
- * Retrieve user account preferences (theme, currencyCode, role, etc.) from Appwrite
+ * Retrieve user account preferences (theme, currencyCode, role, company, etc.) from Appwrite
  */
 export async function fetchUserPreferences(
   config: AppwriteConfig
-): Promise<{ theme?: 'dark' | 'light'; currencyCode?: string; role?: UserRole } | null> {
+): Promise<{
+  theme?: 'dark' | 'light';
+  currencyCode?: string;
+  role?: UserRole;
+  companyId?: string;
+  companyName?: string;
+  companyRole?: CompanyRole;
+} | null> {
   if (!config.endpoint || !config.projectId) return null;
   try {
     const account = getAccount(config);
     const prefs = await account.getPrefs();
-    return prefs as { theme?: 'dark' | 'light'; currencyCode?: string; role?: UserRole };
+    return prefs as {
+      theme?: 'dark' | 'light';
+      currencyCode?: string;
+      role?: UserRole;
+      companyId?: string;
+      companyName?: string;
+      companyRole?: CompanyRole;
+    };
   } catch (err) {
     console.warn('Could not fetch user preferences from Appwrite:', err);
     return null;
@@ -148,11 +169,18 @@ export async function fetchUserPreferences(
 }
 
 /**
- * Save user account preferences (theme, currencyCode, role, etc.) to Appwrite
+ * Save user account preferences (theme, currencyCode, role, company, etc.) to Appwrite
  */
 export async function saveUserPreferences(
   config: AppwriteConfig,
-  prefs: { theme?: 'dark' | 'light'; currencyCode?: string; role?: UserRole }
+  prefs: {
+    theme?: 'dark' | 'light';
+    currencyCode?: string;
+    role?: UserRole;
+    companyId?: string;
+    companyName?: string;
+    companyRole?: CompanyRole;
+  }
 ): Promise<void> {
   if (!config.endpoint || !config.projectId) return;
   try {

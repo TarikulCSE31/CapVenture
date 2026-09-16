@@ -32,13 +32,14 @@ import {
   Storefront,
 } from '@mui/icons-material';
 
-import { UserRole } from '../types';
+import { CompanyInvitation, UserRole } from '../types';
 
 interface AuthPageProps {
   onLogin: (email: string, password: string) => Promise<void>;
   onSignup: (name: string, email: string, password: string, role?: UserRole) => Promise<void>;
   themeMode: 'light' | 'dark';
   onToggleTheme: () => void;
+  activeInvitation?: CompanyInvitation | null;
 }
 
 export const AuthPage: React.FC<AuthPageProps> = ({
@@ -46,9 +47,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   onSignup,
   themeMode,
   onToggleTheme,
+  activeInvitation,
 }) => {
   const theme = useTheme();
-  const [tabIndex, setTabIndex] = useState(0); // 0 = Sign In, 1 = Sign Up
+  const [tabIndex, setTabIndex] = useState(activeInvitation ? 1 : 0); // 0 = Sign In, 1 = Sign Up
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -57,6 +59,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (activeInvitation) {
+      setTabIndex(1);
+      setEmail(activeInvitation.invitedEmail);
+      setSelectedRole(activeInvitation.targetRole);
+    }
+  }, [activeInvitation]);
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabIndex(newValue);
@@ -214,6 +224,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 sx={{ textTransform: 'none', fontWeight: 600 }}
               />
             </Tabs>
+
+            {/* Active Invitation Banner */}
+            {activeInvitation && (
+              <Alert severity="info" sx={{ mb: 2.5, borderRadius: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Invited to {activeInvitation.companyName}
+                </Typography>
+                <Typography variant="caption">
+                  You have been invited by <strong>{activeInvitation.invitedByName}</strong>. Complete your registration to automatically access all shared portfolio data.
+                </Typography>
+              </Alert>
+            )}
 
             {/* Error Message */}
             {error && (

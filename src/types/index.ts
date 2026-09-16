@@ -109,11 +109,48 @@ export interface AppSettings {
   activeRole?: UserRole;
 }
 
+export type CompanyRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
+
+export interface CompanyMember {
+  userId: string;
+  name: string;
+  email: string;
+  companyRole: CompanyRole;
+  joinedAt: string;
+}
+
+export interface CompanyInvitation {
+  id: string;
+  companyId: string;
+  companyName: string;
+  invitedEmail: string;
+  invitedByUserId: string;
+  invitedByName: string;
+  companyRole: CompanyRole;
+  targetRole: UserRole;
+  token: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REVOKED';
+  createdAt: string;
+}
+
+export interface CompanyProfile {
+  id: string;
+  name: string;
+  type: UserRole;
+  ownerId: string;
+  ownerEmail: string;
+  members: CompanyMember[];
+  createdAt: string;
+}
+
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
   role?: UserRole;
+  companyId?: string;
+  companyName?: string;
+  companyRole?: CompanyRole;
 }
 
 // -------------------------------------------------------------

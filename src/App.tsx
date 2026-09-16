@@ -37,6 +37,7 @@ import { StatementView } from './components/StatementView';
 import { TransactionModal } from './components/TransactionModal';
 import { PartnerModal } from './components/PartnerModal';
 import { SettingsModal } from './components/SettingsModal';
+import { TeamModal } from './components/TeamModal';
 import { AuthModal } from './components/AuthModal';
 import { AuthPage } from './components/AuthPage';
 import { BusinessDashboard } from './components/business/BusinessDashboard';
@@ -58,9 +59,14 @@ import {
   BusinessTransactionType,
   CustomerWithBalance,
   BusinessSummary,
+  CompanyProfile,
+  CompanyInvitation,
+  CompanyRole,
 } from './types';
 import {
+  getStoredPartners,
   saveStoredPartners,
+  getStoredTransactions,
   saveStoredTransactions,
   getStoredSettings,
   saveStoredSettings,
@@ -71,6 +77,16 @@ import {
   getStoredBusinessTransactions,
   saveStoredBusinessTransactions,
 } from './utils/storage';
+import {
+  getOrCreateUserCompany,
+  saveStoredCompany,
+  createInvitation,
+  getAllStoredInvitations,
+  findInvitationByToken,
+  findPendingInvitationForEmail,
+  acceptInvitation,
+  revokeInvitation,
+} from './utils/company';
 import {
   calculateSummary,
   computeRunningBalances,
@@ -118,6 +134,12 @@ function AppContent() {
   const [businessCustomers, setBusinessCustomers] = useState<BusinessCustomer[]>([]);
   const [businessTransactions, setBusinessTransactions] = useState<BusinessTransaction[]>([]);
 
+  // Company and Team Collaboration
+  const [company, setCompany] = useState<CompanyProfile | null>(null);
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [invitations, setInvitations] = useState<CompanyInvitation[]>([]);
+  const [activeInvitationForAuth, setActiveInvitationForAuth] = useState<CompanyInvitation | null>(null);
+
   // Modals - Investor
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -134,6 +156,18 @@ function AppContent() {
 
   useEffect(() => {
     loadAllData();
+    // Check invite token in URL (e.g. ?invite=token)
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const inviteToken = urlParams.get('invite');
+      if (inviteToken) {
+        const found = findInvitationByToken(inviteToken);
+        if (found) {
+          setActiveInvitationForAuth(found);
+          setIsAuthModalOpen(true);
+        }
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -158,7 +192,19 @@ function AppContent() {
       if (isAppwriteConfigured(loadedSettings.appwrite)) {
         const user = await getCurrentAppwriteUser(loadedSettings.appwrite);
         if (user) {
+          const userCompany = getOrCreateUserCompany(user);
+          user.companyId = userCompany.id;
+          user.companyName = userCompany.name;
+          user.companyRole =
+            userCompany.members.find(
+              (m) => m.userId === user.id || m.email.toLowerCase() === user.email.toLowerCase()
+            )?.companyRole || 'OWNER';
+
           setCurrentUser(user);
+          setCompany(userCompany);
+          setInvitations(getAllStoredInvitations());
+
+          const effectiveWorkspaceId = userCompany.id;
 
           // Sync user-specific settings (Theme, Currency, Role)
           let userSettings = getStoredSettings(user.id);
@@ -191,41 +237,54 @@ function AppContent() {
           setSettings(userSettings);
           saveStoredSettings(userSettings, user.id);
 
-          // Load Investor data
+          // Load Investor data (scoped to company)
           const [remotePartners, remoteTransactions] = await Promise.all([
             fetchPartnersFromAppwrite(loadedSettings.appwrite),
             fetchTransactionsFromAppwrite(loadedSettings.appwrite),
           ]);
-          setPartners(remotePartners);
-          saveStoredPartners(remotePartners);
-          setTransactions(remoteTransactions);
-          saveStoredTransactions(remoteTransactions);
+          if (remotePartners.length > 0) {
+            setPartners(remotePartners);
+            saveStoredPartners(remotePartners, effectiveWorkspaceId);
+          } else {
+            setPartners(getStoredPartners(effectiveWorkspaceId));
+          }
+          if (remoteTransactions.length > 0) {
+            setTransactions(remoteTransactions);
+            saveStoredTransactions(remoteTransactions, effectiveWorkspaceId);
+          } else {
+            setTransactions(getStoredTransactions(effectiveWorkspaceId));
+          }
 
-          // Load Business data (scoped to user)
-          const storedCust = getStoredCustomers(user.id);
+          // Load Business data (scoped to company)
+          const storedCust = getStoredCustomers(effectiveWorkspaceId);
           setBusinessCustomers(storedCust);
-          const storedBizTx = getStoredBusinessTransactions(user.id);
+          const storedBizTx = getStoredBusinessTransactions(effectiveWorkspaceId);
           setBusinessTransactions(storedBizTx);
         } else {
           setCurrentUser(null);
-          setPartners([]);
-          setTransactions([]);
+          setCompany(null);
+          setPartners(getStoredPartners());
+          setTransactions(getStoredTransactions());
           setBusinessCustomers(getStoredCustomers());
           setBusinessTransactions(getStoredBusinessTransactions());
+          setInvitations(getAllStoredInvitations());
         }
       } else {
         // Local only
         setCurrentUser(null);
-        setPartners([]);
-        setTransactions([]);
+        setCompany(null);
+        setPartners(getStoredPartners());
+        setTransactions(getStoredTransactions());
         setBusinessCustomers(getStoredCustomers());
         setBusinessTransactions(getStoredBusinessTransactions());
+        setInvitations(getAllStoredInvitations());
       }
     } catch (err) {
       console.warn('Session verification error:', err);
       setCurrentUser(null);
-      setPartners([]);
-      setTransactions([]);
+      setCompany(null);
+      setPartners(getStoredPartners());
+      setTransactions(getStoredTransactions());
       setBusinessCustomers(getStoredCustomers());
       setBusinessTransactions(getStoredBusinessTransactions());
     } finally {
@@ -235,7 +294,33 @@ function AppContent() {
 
   const handleLogin = async (email: string, pass: string) => {
     const user = await loginWithAppwrite(settings.appwrite, email, pass);
+
+    // Check for pending invitation by email or active URL invite
+    const pendingInvite = activeInvitationForAuth || findPendingInvitationForEmail(email);
+    if (pendingInvite) {
+      const acceptRes = acceptInvitation(pendingInvite.id, user);
+      if (acceptRes.success && acceptRes.company) {
+        user.companyId = acceptRes.company.id;
+        user.companyName = acceptRes.company.name;
+        user.companyRole = pendingInvite.companyRole;
+        user.role = pendingInvite.targetRole;
+        setCompany(acceptRes.company);
+        showSuccess(`Joined ${acceptRes.company.name} with shared access!`);
+      }
+      setActiveInvitationForAuth(null);
+    } else {
+      const userCompany = getOrCreateUserCompany(user);
+      user.companyId = userCompany.id;
+      user.companyName = userCompany.name;
+      user.companyRole =
+        userCompany.members.find(
+          (m) => m.userId === user.id || m.email.toLowerCase() === user.email.toLowerCase()
+        )?.companyRole || 'OWNER';
+      setCompany(userCompany);
+    }
+
     setCurrentUser(user);
+    setInvitations(getAllStoredInvitations());
     showSuccess(`Welcome back, ${user.name || user.email}!`);
 
     // Fetch user preferences upon login
@@ -270,31 +355,74 @@ function AppContent() {
     setSettings(userSettings);
     saveStoredSettings(userSettings, user.id);
 
-    // Refresh cloud & business data upon login
+    // Refresh cloud & business data upon login (scoped to company)
+    const effectiveWorkspaceId = user.companyId || user.id;
     try {
-      const [remotePartners, remoteTransactions] = await Promise.all([
-        fetchPartnersFromAppwrite(settings.appwrite),
-        fetchTransactionsFromAppwrite(settings.appwrite),
-      ]);
-      setPartners(remotePartners);
-      saveStoredPartners(remotePartners);
-      setTransactions(remoteTransactions);
-      saveStoredTransactions(remoteTransactions);
+      if (isAppwriteConfigured(settings.appwrite)) {
+        const [remotePartners, remoteTransactions] = await Promise.all([
+          fetchPartnersFromAppwrite(settings.appwrite),
+          fetchTransactionsFromAppwrite(settings.appwrite),
+        ]);
+        if (remotePartners.length > 0) {
+          setPartners(remotePartners);
+          saveStoredPartners(remotePartners, effectiveWorkspaceId);
+        } else {
+          setPartners(getStoredPartners(effectiveWorkspaceId));
+        }
+        if (remoteTransactions.length > 0) {
+          setTransactions(remoteTransactions);
+          saveStoredTransactions(remoteTransactions, effectiveWorkspaceId);
+        } else {
+          setTransactions(getStoredTransactions(effectiveWorkspaceId));
+        }
+      } else {
+        setPartners(getStoredPartners(effectiveWorkspaceId));
+        setTransactions(getStoredTransactions(effectiveWorkspaceId));
+      }
     } catch (err) {
       console.warn('Cloud sync error on login:', err);
+      setPartners(getStoredPartners(effectiveWorkspaceId));
+      setTransactions(getStoredTransactions(effectiveWorkspaceId));
     }
 
-    const storedCust = getStoredCustomers(user.id);
+    const storedCust = getStoredCustomers(effectiveWorkspaceId);
     setBusinessCustomers(storedCust);
-    const storedBizTx = getStoredBusinessTransactions(user.id);
+    const storedBizTx = getStoredBusinessTransactions(effectiveWorkspaceId);
     setBusinessTransactions(storedBizTx);
+    setIsAuthModalOpen(false);
   };
 
   const handleSignup = async (name: string, email: string, pass: string, role: UserRole = 'INVESTOR') => {
     const user = await signupWithAppwrite(settings.appwrite, name, email, pass, role);
+
+    // Check for pending invitation by URL token or matching email
+    const pendingInvite = activeInvitationForAuth || findPendingInvitationForEmail(email);
+    let effectiveRole = role;
+
+    if (pendingInvite) {
+      const acceptRes = acceptInvitation(pendingInvite.id, user);
+      if (acceptRes.success && acceptRes.company) {
+        user.companyId = acceptRes.company.id;
+        user.companyName = acceptRes.company.name;
+        user.companyRole = pendingInvite.companyRole;
+        effectiveRole = pendingInvite.targetRole;
+        user.role = effectiveRole;
+        setCompany(acceptRes.company);
+        showSuccess(`Welcome to ${acceptRes.company.name}! You now have shared access.`);
+      }
+      setActiveInvitationForAuth(null);
+    } else {
+      const userCompany = getOrCreateUserCompany(user);
+      user.companyId = userCompany.id;
+      user.companyName = userCompany.name;
+      user.companyRole = 'OWNER';
+      setCompany(userCompany);
+      showSuccess('Account created! Welcome to CapVenture.');
+    }
+
     setCurrentUser(user);
-    setActiveRole(role);
-    if (role === 'BUSINESS_OPERATOR') {
+    setActiveRole(effectiveRole);
+    if (effectiveRole === 'BUSINESS_OPERATOR') {
       setActiveTab('business_dashboard');
     } else {
       setActiveTab('dashboard');
@@ -302,7 +430,7 @@ function AppContent() {
 
     const updatedSettings: AppSettings = {
       ...settings,
-      activeRole: role,
+      activeRole: effectiveRole,
     };
     setSettings(updatedSettings);
     saveStoredSettings(updatedSettings, user.id);
@@ -311,17 +439,30 @@ function AppContent() {
       saveUserPreferences(settings.appwrite, {
         theme: themeMode,
         currencyCode: settings.currency.code,
-        role,
+        role: effectiveRole,
+        companyId: user.companyId,
+        companyName: user.companyName,
+        companyRole: user.companyRole,
       }).catch(console.error);
     }
-    showSuccess('Account created! Welcome to CapVenture.');
+
+    setInvitations(getAllStoredInvitations());
+
+    // Load company workspace data
+    const effectiveWorkspaceId = user.companyId || user.id;
+    setPartners(getStoredPartners(effectiveWorkspaceId));
+    setTransactions(getStoredTransactions(effectiveWorkspaceId));
+    setBusinessCustomers(getStoredCustomers(effectiveWorkspaceId));
+    setBusinessTransactions(getStoredBusinessTransactions(effectiveWorkspaceId));
+    setIsAuthModalOpen(false);
   };
 
   const handleLogout = async () => {
     await logoutAppwrite(settings.appwrite);
     setCurrentUser(null);
-    setPartners([]);
-    setTransactions([]);
+    setCompany(null);
+    setPartners(getStoredPartners());
+    setTransactions(getStoredTransactions());
     setBusinessCustomers(getStoredCustomers());
     setBusinessTransactions(getStoredBusinessTransactions());
     const defaultSettings = getStoredSettings();
@@ -330,6 +471,46 @@ function AppContent() {
     setActiveRole('INVESTOR');
     setActiveTab('dashboard');
     showSuccess('Signed out successfully.');
+  };
+
+  const handleSendInvite = async (
+    inviteEmail: string,
+    targetRole: UserRole,
+    companyRole: CompanyRole
+  ): Promise<{ success: boolean; invite?: CompanyInvitation; error?: string }> => {
+    if (!company || !currentUser) {
+      return { success: false, error: 'Please sign in to invite team members.' };
+    }
+    try {
+      const invite = createInvitation(company, currentUser, inviteEmail, targetRole, companyRole);
+      setInvitations(getAllStoredInvitations());
+      showSuccess(`Invitation generated for ${inviteEmail}!`);
+      return { success: true, invite };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Failed to create invitation.' };
+    }
+  };
+
+  const handleRevokeInvite = (inviteId: string) => {
+    revokeInvitation(inviteId);
+    setInvitations(getAllStoredInvitations());
+    showInfo('Invitation revoked.');
+  };
+
+  const handleUpdateCompany = (updatedCompany: CompanyProfile) => {
+    saveStoredCompany(updatedCompany);
+    setCompany(updatedCompany);
+    if (currentUser) {
+      const updatedUser: AuthUser = {
+        ...currentUser,
+        companyName: updatedCompany.name,
+      };
+      setCurrentUser(updatedUser);
+      if (isAppwriteConfigured(settings.appwrite)) {
+        saveUserPreferences(settings.appwrite, { companyName: updatedCompany.name }).catch(console.error);
+      }
+    }
+    showSuccess('Company profile updated.');
   };
 
   const handleSwitchRole = (newRole: UserRole) => {
@@ -470,7 +651,7 @@ function AppContent() {
     }
 
     setTransactions(updated);
-    saveStoredTransactions(updated);
+    saveStoredTransactions(updated, company?.id);
 
     if (isAppwriteConfigured(settings.appwrite)) {
       const target = updated.find((t) => (existingId ? t.id === existingId : true));
@@ -484,7 +665,7 @@ function AppContent() {
   const handleDeleteTransaction = (id: string) => {
     const updated = transactions.filter((t) => t.id !== id);
     setTransactions(updated);
-    saveStoredTransactions(updated);
+    saveStoredTransactions(updated, company?.id);
 
     if (isAppwriteConfigured(settings.appwrite)) {
       deleteTransactionFromAppwrite(settings.appwrite, id).catch(console.error);
@@ -496,7 +677,7 @@ function AppContent() {
     const idSet = new Set(ids);
     const updated = transactions.filter((t) => !idSet.has(t.id));
     setTransactions(updated);
-    saveStoredTransactions(updated);
+    saveStoredTransactions(updated, company?.id);
 
     if (isAppwriteConfigured(settings.appwrite)) {
       deleteMultipleTransactionsFromAppwrite(settings.appwrite, ids).catch(console.error);
@@ -524,7 +705,7 @@ function AppContent() {
 
     const updatedTransactions = [newProfitTx, ...transactions];
     setTransactions(updatedTransactions);
-    saveStoredTransactions(updatedTransactions);
+    saveStoredTransactions(updatedTransactions, company?.id);
 
     if (isAppwriteConfigured(settings.appwrite)) {
       saveTransactionToAppwrite(settings.appwrite, newProfitTx).catch(console.error);
@@ -548,7 +729,7 @@ function AppContent() {
       updated = [...partners, newPartner];
     }
     setPartners(updated);
-    saveStoredPartners(updated);
+    saveStoredPartners(updated, company?.id);
 
     if (isAppwriteConfigured(settings.appwrite)) {
       const target = updated.find((p) => (existingId ? p.id === existingId : true));
@@ -562,7 +743,7 @@ function AppContent() {
   const handleDeletePartner = (id: string) => {
     const updated = partners.filter((p) => p.id !== id);
     setPartners(updated);
-    saveStoredPartners(updated);
+    saveStoredPartners(updated, company?.id);
 
     if (selectedPartnerId === id) {
       setSelectedPartnerId('ALL');
@@ -609,14 +790,14 @@ function AppContent() {
       updated = [...businessCustomers, newCustomer];
     }
     setBusinessCustomers(updated);
-    saveStoredCustomers(updated, currentUser?.id);
+    saveStoredCustomers(updated, company?.id || currentUser?.id);
     showSuccess(existingId ? 'Customer updated.' : 'Customer added.');
   };
 
   const handleDeleteCustomer = (id: string) => {
     const updated = businessCustomers.filter((c) => c.id !== id);
     setBusinessCustomers(updated);
-    saveStoredCustomers(updated, currentUser?.id);
+    saveStoredCustomers(updated, company?.id || currentUser?.id);
     showWarning('Customer deleted.');
   };
 
@@ -658,14 +839,14 @@ function AppContent() {
       updated = [newTx, ...businessTransactions];
     }
     setBusinessTransactions(updated);
-    saveStoredBusinessTransactions(updated, currentUser?.id);
+    saveStoredBusinessTransactions(updated, company?.id || currentUser?.id);
     showSuccess(existingId ? 'Transaction updated.' : 'Transaction recorded.');
   };
 
   const handleDeleteBusinessTransaction = (id: string) => {
     const updated = businessTransactions.filter((tx) => tx.id !== id);
     setBusinessTransactions(updated);
-    saveStoredBusinessTransactions(updated, currentUser?.id);
+    saveStoredBusinessTransactions(updated, company?.id || currentUser?.id);
     showWarning('Transaction deleted.');
   };
 
@@ -724,6 +905,7 @@ function AppContent() {
           onSignup={handleSignup}
           themeMode={themeMode}
           onToggleTheme={toggleTheme}
+          activeInvitation={activeInvitationForAuth}
         />
       </ThemeProvider>
     );
@@ -750,6 +932,8 @@ function AppContent() {
           onOpenBusinessTxModal={() => handleOpenNewBusinessTx('SALE')}
           onOpenPartnerModal={() => setIsPartnerModalOpen(true)}
           onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+          onOpenTeamModal={() => setIsTeamModalOpen(true)}
+          companyName={company?.name}
           isAppwriteEnabled={Boolean(settings.appwrite?.enabled)}
           onToggleTheme={toggleTheme}
           currentUser={currentUser}
@@ -1100,12 +1284,24 @@ function AppContent() {
           onExportCsv={handleExportCsv}
         />
 
+        <TeamModal
+          isOpen={isTeamModalOpen}
+          onClose={() => setIsTeamModalOpen(false)}
+          currentUser={currentUser}
+          company={company}
+          onUpdateCompany={handleUpdateCompany}
+          onSendInvite={handleSendInvite}
+          onRevokeInvite={handleRevokeInvite}
+          invitations={invitations}
+        />
+
         <AuthModal
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
           onLogin={handleLogin}
           onSignup={handleSignup}
           onContinueAsGuest={() => setIsAuthModalOpen(false)}
+          activeInvitation={activeInvitationForAuth}
         />
 
         {/* Business Operator Modals */}

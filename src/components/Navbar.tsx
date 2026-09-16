@@ -39,6 +39,7 @@ import {
   PaidOutlined,
   ChevronRight,
   Check,
+  GroupOutlined,
 } from '@mui/icons-material';
 import { AuthUser, CurrencyConfig, DEFAULT_CURRENCIES, Partner, UserRole } from '../types';
 
@@ -56,6 +57,8 @@ interface NavbarProps {
   onOpenBusinessTxModal?: () => void;
   onOpenPartnerModal: () => void;
   onOpenSettingsModal: () => void;
+  onOpenTeamModal: () => void;
+  companyName?: string;
   isAppwriteEnabled?: boolean;
   onToggleTheme: () => void;
   currentUser: AuthUser | null;
@@ -75,6 +78,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectCurrency,
   onOpenPartnerModal,
   onOpenSettingsModal,
+  onOpenTeamModal,
+  companyName,
   isAppwriteEnabled = false,
   onToggleTheme,
   currentUser,
@@ -391,6 +396,30 @@ export const Navbar: React.FC<NavbarProps> = ({
               </MenuItem>
             )}
 
+            {/* Team & Organization */}
+            <MenuItem
+              onClick={() => {
+                handleCloseSettingsMenu();
+                onOpenTeamModal();
+              }}
+              sx={{
+                py: 1,
+                px: 2,
+                borderRadius: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 36, color: 'info.main' }}>
+                <GroupOutlined fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                sx={{ my: 0, flex: 1 }}
+                primary={<Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Team & Organization</Typography>}
+                secondary={<Typography variant="caption" sx={{ fontSize: '0.725rem', color: 'text.secondary' }}>Invite members & collaborate</Typography>}
+              />
+            </MenuItem>
+
             <Divider sx={{ my: 0.8, mx: 1 }} />
 
             {/* 4. Full Settings Modal */}
@@ -509,6 +538,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all', display: 'block' }}>
                     {currentUser.email}
                   </Typography>
+                  {companyName && (
+                    <Typography variant="caption" sx={{ display: 'block', color: 'primary.main', fontWeight: 600, mt: 0.3 }}>
+                      {companyName}
+                    </Typography>
+                  )}
                   <Box sx={{ display: 'flex', gap: 0.8, mt: 0.8, alignItems: 'center' }}>
                     <Chip
                       size="small"
@@ -518,14 +552,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                     />
                     <Chip
                       size="small"
-                      label="Cloud"
-                      color="secondary"
+                      label={currentUser.companyRole || 'Owner'}
                       variant="outlined"
                       sx={{ height: 20, fontSize: '0.6875rem' }}
                     />
                   </Box>
                 </Box>
                 <Divider sx={{ my: 1 }} />
+                <MenuItem
+                  onClick={() => {
+                    handleCloseUserMenu();
+                    onOpenTeamModal();
+                  }}
+                >
+                  <ListItemIcon>
+                    <GroupOutlined fontSize="small" color="primary" />
+                  </ListItemIcon>
+                  Team &amp; Organization
+                </MenuItem>
                 <MenuItem
                   onClick={() => {
                     handleCloseUserMenu();
@@ -541,7 +585,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <ListItemIcon>
                     <SettingsOutlined fontSize="small" />
                   </ListItemIcon>
-                  Settings & Sync
+                  Settings &amp; Sync
                 </MenuItem>
                 <MenuItem onClick={() => { handleCloseUserMenu(); onLogout(); }}>
                   <ListItemIcon>

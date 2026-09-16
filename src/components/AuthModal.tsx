@@ -28,8 +28,9 @@ import {
   PersonAdd,
   TrendingUp,
   Storefront,
+  GroupOutlined,
 } from '@mui/icons-material';
-import { UserRole } from '../types';
+import { CompanyInvitation, UserRole } from '../types';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -37,6 +38,8 @@ interface AuthModalProps {
   onLogin: (email: string, password: string) => Promise<void>;
   onSignup: (name: string, email: string, password: string, role?: UserRole) => Promise<void>;
   onContinueAsGuest: () => void;
+  activeInvitation?: CompanyInvitation | null;
+  initialTab?: number;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -45,9 +48,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onLogin,
   onSignup,
   onContinueAsGuest,
+  activeInvitation,
+  initialTab = 0,
 }) => {
   const theme = useTheme();
-  const [tabIndex, setTabIndex] = useState(0); // 0 = Sign In, 1 = Sign Up
+  const [tabIndex, setTabIndex] = useState(initialTab); // 0 = Sign In, 1 = Sign Up
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -56,6 +61,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (activeInvitation) {
+      setTabIndex(1);
+      setEmail(activeInvitation.invitedEmail);
+      setSelectedRole(activeInvitation.targetRole);
+    } else if (initialTab !== undefined) {
+      setTabIndex(initialTab);
+    }
+  }, [activeInvitation, initialTab, isOpen]);
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabIndex(newValue);
@@ -159,6 +174,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <Tab label="Sign In" icon={<Login fontSize="small" />} iconPosition="start" sx={{ textTransform: 'none', fontWeight: 600 }} />
           <Tab label="Register" icon={<PersonAdd fontSize="small" />} iconPosition="start" sx={{ textTransform: 'none', fontWeight: 600 }} />
         </Tabs>
+
+        {activeInvitation && (
+          <Alert severity="info" icon={<GroupOutlined />} sx={{ mb: 2, borderRadius: 2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Invited to {activeInvitation.companyName}
+            </Typography>
+            <Typography variant="caption">
+              You have been invited by <strong>{activeInvitation.invitedByName}</strong>. Register with <strong>{activeInvitation.invitedEmail}</strong> to automatically join with shared access.
+            </Typography>
+          </Alert>
+        )}
 
         {error && (
           <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
