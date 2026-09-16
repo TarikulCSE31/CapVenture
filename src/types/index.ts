@@ -72,8 +72,27 @@ export const DEFAULT_CURRENCIES: CurrencyConfig[] = [
   { code: 'AUD', symbol: 'AU$', label: 'Australian Dollar (AU$)' },
 ];
 
+export interface AppwriteConfig {
+  enabled: boolean;
+  endpoint: string; // e.g. https://cloud.appwrite.io/v1
+  projectId: string;
+  databaseId: string; // e.g. capventure_db
+  partnersCollectionId: string; // e.g. partners
+  transactionsCollectionId: string; // e.g. transactions
+}
+
+export const DEFAULT_APPWRITE_CONFIG: AppwriteConfig = {
+  enabled: false,
+  endpoint: 'https://cloud.appwrite.io/v1',
+  projectId: '',
+  databaseId: 'capventure_db',
+  partnersCollectionId: 'partners',
+  transactionsCollectionId: 'transactions',
+};
+
 export interface AppSettings {
   currency: CurrencyConfig;
+  appwrite: AppwriteConfig;
   supabaseUrl?: string;
   supabaseAnonKey?: string;
   useSupabase: boolean;

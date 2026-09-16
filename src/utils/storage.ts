@@ -1,4 +1,4 @@
-import { AppSettings, DEFAULT_CURRENCIES, Partner, Transaction } from '../types';
+import { AppSettings, DEFAULT_APPWRITE_CONFIG, DEFAULT_CURRENCIES, Partner, Transaction } from '../types';
 
 const STORAGE_KEYS = {
   PARTNERS: 'capventure_partners_v1',
@@ -131,6 +131,7 @@ export const INITIAL_DEMO_TRANSACTIONS: Transaction[] = [
 
 export const DEFAULT_SETTINGS: AppSettings = {
   currency: DEFAULT_CURRENCIES[0], // USD default
+  appwrite: DEFAULT_APPWRITE_CONFIG,
   useSupabase: false,
   theme: 'dark',
 };
@@ -183,7 +184,15 @@ export function getStoredSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     if (!raw) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      appwrite: {
+        ...DEFAULT_APPWRITE_CONFIG,
+        ...(parsed.appwrite || {}),
+      },
+    };
   } catch {
     return DEFAULT_SETTINGS;
   }

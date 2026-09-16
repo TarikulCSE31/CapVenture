@@ -21,6 +21,7 @@ interface NavbarProps {
   onOpenTransactionModal: () => void;
   onOpenPartnerModal: () => void;
   onOpenSettingsModal: () => void;
+  isAppwriteEnabled?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -34,6 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenTransactionModal,
   onOpenPartnerModal,
   onOpenSettingsModal,
+  isAppwriteEnabled = false,
 }) => {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md no-print">
@@ -55,6 +57,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                     Pro
                   </span>
                 </h1>
+                {isAppwriteEnabled ? (
+                  <button
+                    onClick={onOpenSettingsModal}
+                    className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-300 border border-pink-500/30 hover:bg-pink-500/25 transition-colors"
+                    title="Appwrite Cloud Sync Active"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-pink-400 animate-pulse" />
+                    Appwrite Cloud
+                  </button>
+                ) : (
+                  <button
+                    onClick={onOpenSettingsModal}
+                    className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 hover:text-slate-200 transition-colors"
+                    title="Local Storage Mode (Click to configure cloud sync)"
+                  >
+                    Local Mode
+                  </button>
+                )}
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">Investment & Profit Capital Ledger</p>
             </div>

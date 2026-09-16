@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
+    "appwrite": "^27.0.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",
     "recharts": "^2.15.1",

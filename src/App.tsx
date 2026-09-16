@@ -29,13 +29,22 @@ import {
   formatCurrency 
 } from './utils/calculations';
 import { 
+  isAppwriteConfigured, 
+  fetchPartnersFromAppwrite, 
+  fetchTransactionsFromAppwrite, 
+  savePartnerToAppwrite, 
+  deletePartnerFromAppwrite, 
+  saveTransactionToAppwrite, 
+  deleteTransactionFromAppwrite 
+} from './utils/appwrite';
+import { 
   ArrowDownRight, 
   ArrowUpLeft, 
   TrendingUp, 
   ArrowRight, 
   Clock, 
-  Phone,
-  Mail
+  Phone, 
+  Mail 
 } from 'lucide-react';
 
 export default function App() {
@@ -57,13 +66,33 @@ export default function App() {
     loadAllData();
   }, []);
 
-  const loadAllData = () => {
+  const loadAllData = async () => {
     const loadedPartners = getStoredPartners();
     const loadedTransactions = getStoredTransactions();
     const loadedSettings = getStoredSettings();
     setPartners(loadedPartners);
     setTransactions(loadedTransactions);
     setSettings(loadedSettings);
+
+    // If Appwrite is configured and enabled, sync down latest
+    if (isAppwriteConfigured(loadedSettings.appwrite)) {
+      try {
+        const [remotePartners, remoteTransactions] = await Promise.all([
+          fetchPartnersFromAppwrite(loadedSettings.appwrite),
+          fetchTransactionsFromAppwrite(loadedSettings.appwrite),
+        ]);
+        if (remotePartners.length > 0) {
+          setPartners(remotePartners);
+          saveStoredPartners(remotePartners);
+        }
+        if (remoteTransactions.length > 0) {
+          setTransactions(remoteTransactions);
+          saveStoredTransactions(remoteTransactions);
+        }
+      } catch (err) {
+        console.warn('Could not auto-fetch from Appwrite, using local cache:', err);
+      }
+    }
   };
 
   // Partners Map for O(1) lookup
@@ -103,27 +132,40 @@ export default function App() {
     existingId?: string
   ) => {
     let updated: Transaction[];
+    let targetTx: Transaction;
+
     if (existingId) {
-      updated = transactions.map((t) =>
-        t.id === existingId ? { ...t, ...data } : t
-      );
+      targetTx = { ...transactions.find((t) => t.id === existingId)!, ...data };
+      updated = transactions.map((t) => (t.id === existingId ? targetTx : t));
     } else {
-      const newTx: Transaction = {
+      targetTx = {
         ...data,
         id: `tx-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         createdAt: new Date().toISOString(),
       };
-      updated = [newTx, ...transactions];
+      updated = [targetTx, ...transactions];
     }
+
     setTransactions(updated);
     saveStoredTransactions(updated);
     setEditingTx(null);
+
+    // Sync to Appwrite if configured
+    if (isAppwriteConfigured(settings.appwrite)) {
+      saveTransactionToAppwrite(settings.appwrite, targetTx)
+        .catch((err) => console.error('Appwrite save transaction failed:', err));
+    }
   };
 
   const handleDeleteTransaction = (id: string) => {
     const updated = transactions.filter((t) => t.id !== id);
     setTransactions(updated);
     saveStoredTransactions(updated);
+
+    if (isAppwriteConfigured(settings.appwrite)) {
+      deleteTransactionFromAppwrite(settings.appwrite, id)
+        .catch((err) => console.error('Appwrite delete transaction failed:', err));
+    }
   };
 
   const handleOpenAddTxModal = (presetType?: TransactionType) => {
@@ -149,22 +191,28 @@ export default function App() {
     existingId?: string
   ) => {
     let updated: Partner[];
+    let targetPartner: Partner;
+
     if (existingId) {
-      updated = partners.map((p) =>
-        p.id === existingId ? { ...p, ...data } : p
-      );
+      targetPartner = { ...partners.find((p) => p.id === existingId)!, ...data };
+      updated = partners.map((p) => (p.id === existingId ? targetPartner : p));
     } else {
-      const newPartner: Partner = {
+      targetPartner = {
         ...data,
         id: `partner-${Date.now()}`,
         createdAt: new Date().toISOString(),
       };
-      updated = [...partners, newPartner];
-      // Automatically select newly created partner if user was on 'ALL' or wanting to focus
-      setSelectedPartnerId(newPartner.id);
+      updated = [...partners, targetPartner];
+      setSelectedPartnerId(targetPartner.id);
     }
+
     setPartners(updated);
     saveStoredPartners(updated);
+
+    if (isAppwriteConfigured(settings.appwrite)) {
+      savePartnerToAppwrite(settings.appwrite, targetPartner)
+        .catch((err) => console.error('Appwrite save partner failed:', err));
+    }
   };
 
   const handleDeletePartner = (id: string) => {
@@ -173,6 +221,11 @@ export default function App() {
     saveStoredPartners(updated);
     if (selectedPartnerId === id) {
       setSelectedPartnerId('ALL');
+    }
+
+    if (isAppwriteConfigured(settings.appwrite)) {
+      deletePartnerFromAppwrite(settings.appwrite, id)
+        .catch((err) => console.error('Appwrite delete partner failed:', err));
     }
   };
 
@@ -202,6 +255,7 @@ export default function App() {
         onOpenTransactionModal={() => handleOpenAddTxModal()}
         onOpenPartnerModal={() => setIsPartnerModalOpen(true)}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+        isAppwriteEnabled={Boolean(settings.appwrite?.enabled)}
       />
 
       {/* Main Container */}
