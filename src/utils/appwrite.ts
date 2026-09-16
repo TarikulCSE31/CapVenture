@@ -289,6 +289,25 @@ export async function deleteTransactionFromAppwrite(config: AppwriteConfig, tran
 }
 
 /**
+ * Delete multiple transactions from Appwrite
+ */
+export async function deleteMultipleTransactionsFromAppwrite(
+  config: AppwriteConfig,
+  transactionIds: string[]
+): Promise<void> {
+  const databases = getDatabases(config);
+  await Promise.all(
+    transactionIds.map((id) =>
+      databases.deleteDocument(
+        config.databaseId,
+        config.transactionsCollectionId,
+        id
+      )
+    )
+  );
+}
+
+/**
  * Sync all local data to Appwrite
  */
 export async function syncLocalToAppwrite(

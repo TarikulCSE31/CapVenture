@@ -67,6 +67,7 @@ import {
   deletePartnerFromAppwrite,
   saveTransactionToAppwrite,
   deleteTransactionFromAppwrite,
+  deleteMultipleTransactionsFromAppwrite,
   getCurrentAppwriteUser,
   loginWithAppwrite,
   signupWithAppwrite,
@@ -236,6 +237,16 @@ export default function App() {
 
     if (isAppwriteConfigured(settings.appwrite)) {
       deleteTransactionFromAppwrite(settings.appwrite, id).catch(console.error);
+    }
+  };
+
+  const handleDeleteMultipleTransactions = (ids: string[]) => {
+    const updated = transactions.filter((t) => !ids.includes(t.id));
+    setTransactions(updated);
+    saveStoredTransactions(updated);
+
+    if (isAppwriteConfigured(settings.appwrite)) {
+      deleteMultipleTransactionsFromAppwrite(settings.appwrite, ids).catch(console.error);
     }
   };
 
@@ -635,8 +646,10 @@ export default function App() {
                 setIsTxModalOpen(true);
               }}
               onDeleteTransaction={handleDeleteTransaction}
+              onDeleteMultipleTransactions={handleDeleteMultipleTransactions}
               onExportCsv={handleExportCsv}
               onOpenAddModal={() => handleOpenAddTxModal()}
+              partners={partners}
             />
           )}
 
