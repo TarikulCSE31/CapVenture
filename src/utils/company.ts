@@ -121,6 +121,73 @@ export function getCompanyInvitations(companyId: string): CompanyInvitation[] {
 }
 
 /**
+ * Merge two company profiles without losing any members (preserves local members)
+ */
+export function mergeCompanyProfiles(
+  local: CompanyProfile,
+  cloud?: CompanyProfile | null
+): CompanyProfile {
+  if (!cloud) return local;
+
+  const membersMap = new Map<string, CompanyMember>();
+
+  // Add cloud members first
+  for (const m of cloud.members || []) {
+    const key = (m.userId || m.email).toLowerCase();
+    membersMap.set(key, m);
+  }
+
+  // Add/merge local members so local additions are never wiped out
+  for (const m of local.members || []) {
+    const key = (m.userId || m.email).toLowerCase();
+    const existing = membersMap.get(key);
+    if (!existing) {
+      membersMap.set(key, m);
+    } else {
+      membersMap.set(key, { ...existing, ...m });
+    }
+  }
+
+  return {
+    ...cloud,
+    ...local,
+    name: local.name || cloud.name,
+    members: Array.from(membersMap.values()),
+  };
+}
+
+/**
+ * Merge invitations so accepted and revoked statuses take precedence over pending
+ */
+export function mergeInvitations(
+  local: CompanyInvitation[],
+  cloud: CompanyInvitation[]
+): CompanyInvitation[] {
+  const map = new Map<string, CompanyInvitation>();
+
+  for (const inv of cloud || []) {
+    map.set(inv.id, inv);
+  }
+
+  for (const inv of local || []) {
+    const existing = map.get(inv.id);
+    if (!existing) {
+      map.set(inv.id, inv);
+    } else {
+      if (inv.status === 'ACCEPTED' || existing.status === 'ACCEPTED') {
+        map.set(inv.id, { ...existing, ...inv, status: 'ACCEPTED' });
+      } else if (inv.status === 'REVOKED' || existing.status === 'REVOKED') {
+        map.set(inv.id, { ...existing, ...inv, status: 'REVOKED' });
+      } else {
+        map.set(inv.id, { ...existing, ...inv });
+      }
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+/**
  * Create a self-contained token that can be decoded on any machine/browser
  */
 export function encodeInviteToken(data: {

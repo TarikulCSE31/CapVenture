@@ -90,6 +90,8 @@ import {
   revokeInvitation,
   confirmMemberJoin,
   removeMemberFromCompany,
+  mergeCompanyProfiles,
+  mergeInvitations,
 } from './utils/company';
 import {
   calculateSummary,
@@ -206,24 +208,17 @@ function AppContent() {
           try {
             const cloudData = await fetchCompanyFromAppwrite(loadedSettings.appwrite, userCompany.id);
             if (cloudData) {
-              userCompany = {
-                ...userCompany,
-                ...cloudData.company,
-                members: cloudData.company.members || userCompany.members,
-              };
+              userCompany = mergeCompanyProfiles(userCompany, cloudData.company);
               saveStoredCompany(userCompany);
               
-              const merged = [...allInvites];
-              for (const cInv of cloudData.invitations) {
-                const idx = merged.findIndex((i) => i.id === cInv.id);
-                if (idx >= 0) {
-                  merged[idx] = cInv;
-                } else {
-                  merged.push(cInv);
-                }
-              }
+              const merged = mergeInvitations(allInvites, cloudData.invitations);
               saveAllStoredInvitations(merged);
               allInvites = merged;
+
+              // Ensure cloud also preserves any local members
+              saveCompanyToAppwrite(loadedSettings.appwrite, userCompany, merged).catch(console.error);
+            } else {
+              saveCompanyToAppwrite(loadedSettings.appwrite, userCompany, allInvites).catch(console.error);
             }
           } catch (cloudErr) {
             console.warn('Cloud company sync:', cloudErr);
@@ -599,16 +594,26 @@ function AppContent() {
 
   const handleRefreshTeamSync = async () => {
     if (!company) return;
+    const currentComp = getStoredCompany(company.id) || company;
+    const currentInvites = getAllStoredInvitations();
+
     if (isAppwriteConfigured(settings.appwrite)) {
       try {
         const cloudData = await fetchCompanyFromAppwrite(settings.appwrite, company.id);
         if (cloudData) {
-          saveStoredCompany(cloudData.company);
-          setCompany(cloudData.company);
-          saveAllStoredInvitations(cloudData.invitations);
-          setInvitations(cloudData.invitations);
-          showSuccess('Team status refreshed from cloud.');
+          const mergedComp = mergeCompanyProfiles(currentComp, cloudData.company);
+          const mergedInv = mergeInvitations(currentInvites, cloudData.invitations);
+
+          saveStoredCompany(mergedComp);
+          setCompany(mergedComp);
+          saveAllStoredInvitations(mergedInv);
+          setInvitations(mergedInv);
+
+          await saveCompanyToAppwrite(settings.appwrite, mergedComp, mergedInv);
+          showSuccess('Team status synchronized from cloud (members preserved).');
           return;
+        } else {
+          await saveCompanyToAppwrite(settings.appwrite, currentComp, currentInvites);
         }
       } catch (e) {
         console.warn('Refresh team sync error:', e);
