@@ -1137,11 +1137,12 @@ function AppContent() {
           }}
         />
 
-        {/* Material Footer */}
+        {/* App Footer */}
         <Box
           component="footer"
           sx={{
             py: 2.5,
+            px: 2,
             textAlign: 'center',
             borderTop: 1,
             borderColor: 'divider',
@@ -1150,8 +1151,8 @@ function AppContent() {
           }}
           className="no-print"
         >
-          <Typography variant="caption" color="text.secondary">
-            CapVenture • Material UI Business Investment & Profit Tracker • 100% Free & Open
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.775rem' }}>
+            © {new Date().getFullYear()} CapVenture — Intelligent Capital & Business Portfolio Tracker
           </Typography>
         </Box>
 
