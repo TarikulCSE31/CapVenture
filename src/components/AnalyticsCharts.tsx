@@ -52,9 +52,9 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       
       {/* Top Analytical Cards */}
-      <Grid container spacing={2.5}>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, height: '100%' }}>
+      <Grid container spacing={{ xs: 1.5, sm: 2.5 }}>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 3, height: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
                 Break-Even Recovery
@@ -62,7 +62,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
               <Timeline fontSize="small" color="primary" />
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>
+              <Typography variant="h5" sx={{ fontWeight: 700, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
                 {summary.recoveryPercentage.toFixed(1)}%
               </Typography>
               <Typography variant="caption" color={summary.isBreakEvenReached ? 'success.main' : 'text.secondary'} sx={{ fontWeight: 600 }}>
@@ -81,15 +81,15 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
           </Paper>
         </Grid>
 
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, height: '100%' }}>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 3, height: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
                 Monthly Profit Rate
               </Typography>
               <TrendingUp fontSize="small" color="success" />
             </Box>
-            <Typography variant="h5" color="success.main" sx={{ fontWeight: 700, mb: 0.5 }}>
+            <Typography variant="h5" color="success.main" sx={{ fontWeight: 700, mb: 0.5, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
               +{formatCurrency(avgMonthlyProfit, currency)}
               <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
                 / month avg
@@ -101,15 +101,15 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
           </Paper>
         </Grid>
 
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, height: '100%' }}>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 3, height: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
                 Total Return On Investment
               </Typography>
               <BarChartIcon fontSize="small" color="info" />
             </Box>
-            <Typography variant="h5" color="primary.main" sx={{ fontWeight: 700, mb: 0.5 }}>
+            <Typography variant="h5" color="primary.main" sx={{ fontWeight: 700, mb: 0.5, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
               {summary.roiPercentage.toFixed(1)}% ROI
             </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -120,7 +120,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
       </Grid>
 
       {/* Chart 1: Cumulative Trajectory */}
-      <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
@@ -132,7 +132,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
           </Box>
         </Box>
 
-        <Box sx={{ width: '100%', height: 300 }}>
+        <Box sx={{ width: '100%', height: { xs: 230, sm: 280, md: 300 } }}>
           {timelineData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={timelineData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -165,8 +165,10 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                     borderColor: theme.palette.divider,
                     borderRadius: '8px',
                     fontSize: '12px',
-                    color: theme.palette.text.primary,
+                    boxShadow: theme.palette.mode === 'dark' ? '0 4px 20px rgba(0,0,0,0.6)' : '0 4px 20px rgba(0,0,0,0.1)',
                   }}
+                  itemStyle={{ color: theme.palette.text.primary }}
+                  labelStyle={{ color: theme.palette.text.primary, fontWeight: 700, marginBottom: '4px' }}
                   formatter={(value: any, name: any) => {
                     const formatted = formatCurrency(Number(value) || 0, currency);
                     if (name === 'activeCapital') return [formatted, 'Active Principal Owed'];
@@ -205,7 +207,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
       </Paper>
 
       {/* Chart 2: Monthly Breakdown */}
-      <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3 }}>
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
             Monthly Cash Flow & Profit Volume
@@ -215,7 +217,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
           </Typography>
         </Box>
 
-        <Box sx={{ width: '100%', height: 300 }}>
+        <Box sx={{ width: '100%', height: { xs: 230, sm: 280, md: 300 } }}>
           {monthlyData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -238,8 +240,10 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                     borderColor: theme.palette.divider,
                     borderRadius: '8px',
                     fontSize: '12px',
-                    color: theme.palette.text.primary,
+                    boxShadow: theme.palette.mode === 'dark' ? '0 4px 20px rgba(0,0,0,0.6)' : '0 4px 20px rgba(0,0,0,0.1)',
                   }}
+                  itemStyle={{ color: theme.palette.text.primary }}
+                  labelStyle={{ color: theme.palette.text.primary, fontWeight: 700, marginBottom: '4px' }}
                   formatter={(value: any, name: any) => {
                     const formatted = formatCurrency(Number(value) || 0, currency);
                     if (name === 'invested') return [formatted, 'Capital Invested'];
@@ -251,7 +255,8 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                 <Legend 
                   verticalAlign="top" 
                   height={36} 
-                  wrapperStyle={{ fontSize: '12px', color: theme.palette.text.secondary }}
+                  wrapperStyle={{ fontSize: '12px' }}
+                  formatter={(val) => <span style={{ color: theme.palette.text.primary, fontWeight: 500, marginRight: 8 }}>{val}</span>}
                 />
                 <Bar dataKey="invested" name="Capital Invested" fill={theme.palette.primary.main} radius={[4, 4, 0, 0]} />
                 <Bar dataKey="returned" name="Principal Returned" fill={theme.palette.warning.main} radius={[4, 4, 0, 0]} />

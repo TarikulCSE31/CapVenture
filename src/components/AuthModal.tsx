@@ -14,6 +14,8 @@ import {
   InputAdornment,
   CircularProgress,
   Divider,
+  Paper,
+  useTheme,
 } from '@mui/material';
 import {
   Close,
@@ -24,13 +26,16 @@ import {
   VisibilityOff,
   Login,
   PersonAdd,
+  TrendingUp,
+  Storefront,
 } from '@mui/icons-material';
+import { UserRole } from '../types';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLogin: (email: string, password: string) => Promise<void>;
-  onSignup: (name: string, email: string, password: string) => Promise<void>;
+  onSignup: (name: string, email: string, password: string, role?: UserRole) => Promise<void>;
   onContinueAsGuest: () => void;
 }
 
@@ -41,11 +46,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onSignup,
   onContinueAsGuest,
 }) => {
+  const theme = useTheme();
   const [tabIndex, setTabIndex] = useState(0); // 0 = Sign In, 1 = Sign Up
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [selectedRole, setSelectedRole] = useState<UserRole>('INVESTOR');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +93,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (tabIndex === 0) {
         await onLogin(email.trim(), password);
       } else {
-        await onSignup(name.trim(), email.trim(), password);
+        await onSignup(name.trim(), email.trim(), password, selectedRole);
       }
       // Reset form
       setName('');
@@ -110,32 +117,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       slotProps={{
         paper: {
           elevation: 4,
-          sx: { borderRadius: 3, p: 1 },
+          sx: {
+            borderRadius: { xs: 2.5, sm: 3 },
+            p: { xs: 0.5, sm: 1 },
+            m: { xs: 1, sm: 2 },
+            width: { xs: 'calc(100% - 16px)', sm: 'auto' },
+            maxHeight: { xs: 'calc(100% - 16px)', sm: 'calc(100% - 64px)' },
+          },
         },
       }}
     >
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box
-            sx={{
-              width: 38,
-              height: 38,
-              borderRadius: 2,
-              bgcolor: 'primary.main',
-              color: 'white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <LockOutlined fontSize="small" />
-          </Box>
+            component="img"
+            src="/logo.svg"
+            alt="CapVenture"
+            sx={{ width: 38, height: 38, borderRadius: 1.5, flexShrink: 0 }}
+          />
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
               {tabIndex === 0 ? 'Welcome Back' : 'Create Account'}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              CapVenture Capital & Profit Tracker
+              CapVenture Capital &amp; Profit Tracker
             </Typography>
           </Box>
         </Box>
@@ -259,6 +264,79 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 },
               }}
             />
+          )}
+
+          {tabIndex === 1 && (
+            <Box sx={{ my: 0.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.8, display: 'block', fontWeight: 600 }}>
+                SELECT YOUR ACCOUNT ROLE
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.2 }}>
+                <Paper
+                  variant="outlined"
+                  onClick={() => setSelectedRole('INVESTOR')}
+                  sx={{
+                    p: 1.2,
+                    borderRadius: 2,
+                    cursor: 'pointer',
+                    border: '2px solid',
+                    borderColor: selectedRole === 'INVESTOR' ? 'primary.main' : 'divider',
+                    bgcolor: selectedRole === 'INVESTOR'
+                      ? theme.palette.mode === 'dark'
+                        ? 'rgba(25, 118, 210, 0.15)'
+                        : 'rgba(25, 118, 210, 0.06)'
+                      : 'transparent',
+                    textAlign: 'center',
+                    transition: 'all 0.15s ease-in-out',
+                  }}
+                >
+                  <TrendingUp
+                    sx={{
+                      fontSize: 22,
+                      color: selectedRole === 'INVESTOR' ? 'primary.main' : 'text.secondary',
+                    }}
+                  />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.8125rem', mt: 0.3 }}>
+                    Investor
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>
+                    Investments & Profit
+                  </Typography>
+                </Paper>
+
+                <Paper
+                  variant="outlined"
+                  onClick={() => setSelectedRole('BUSINESS_OPERATOR')}
+                  sx={{
+                    p: 1.2,
+                    borderRadius: 2,
+                    cursor: 'pointer',
+                    border: '2px solid',
+                    borderColor: selectedRole === 'BUSINESS_OPERATOR' ? 'primary.main' : 'divider',
+                    bgcolor: selectedRole === 'BUSINESS_OPERATOR'
+                      ? theme.palette.mode === 'dark'
+                        ? 'rgba(25, 118, 210, 0.15)'
+                        : 'rgba(25, 118, 210, 0.06)'
+                      : 'transparent',
+                    textAlign: 'center',
+                    transition: 'all 0.15s ease-in-out',
+                  }}
+                >
+                  <Storefront
+                    sx={{
+                      fontSize: 22,
+                      color: selectedRole === 'BUSINESS_OPERATOR' ? 'primary.main' : 'text.secondary',
+                    }}
+                  />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.8125rem', mt: 0.3 }}>
+                    Business Operator
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>
+                    Sales, Dues & Customers
+                  </Typography>
+                </Paper>
+              </Box>
+            </Box>
           )}
 
           <Button

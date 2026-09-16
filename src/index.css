@@ -2,36 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --bg-primary: #020617;
-    --card-bg: #0f172a;
-  }
-}
-
-/* Custom scrollbar */
+/* Theme-adaptive custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: rgba(128, 128, 128, 0.3);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: rgba(128, 128, 128, 0.5);
 }
+
+/* Native form controls color-scheme & calendar picker styling */
+html.dark,
+html.dark input,
+html.dark select,
+html.dark textarea,
+[data-theme='dark'],
+[data-theme='dark'] input {
+  color-scheme: dark !important;
+}
+
+html.light,
+html.light input,
+html.light select,
+html.light textarea,
+[data-theme='light'],
+[data-theme='light'] input {
+  color-scheme: light !important;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
+
 
 @media print {
   body {
-    background: white !important;
-    color: black !important;
+    background: #ffffff !important;
+    color: #000000 !important;
   }
   .no-print {
     display: none !important;

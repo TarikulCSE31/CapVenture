@@ -39,12 +39,25 @@ import { PartnerModal } from './components/PartnerModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AuthModal } from './components/AuthModal';
 import { AuthPage } from './components/AuthPage';
+import { BusinessDashboard } from './components/business/BusinessDashboard';
+import { CustomersTable } from './components/business/CustomersTable';
+import { BusinessLedgerTable } from './components/business/BusinessLedgerTable';
+import { CustomerModal } from './components/business/CustomerModal';
+import { BusinessTransactionModal } from './components/business/BusinessTransactionModal';
 import {
   Partner,
   Transaction,
   TransactionType,
   AppSettings,
   AuthUser,
+  CurrencyConfig,
+  DEFAULT_CURRENCIES,
+  UserRole,
+  BusinessCustomer,
+  BusinessTransaction,
+  BusinessTransactionType,
+  CustomerWithBalance,
+  BusinessSummary,
 } from './types';
 import {
   saveStoredPartners,
@@ -53,12 +66,20 @@ import {
   saveStoredSettings,
   exportToCsv,
   triggerDownload,
+  getStoredCustomers,
+  saveStoredCustomers,
+  getStoredBusinessTransactions,
+  saveStoredBusinessTransactions,
 } from './utils/storage';
 import {
   calculateSummary,
   computeRunningBalances,
   formatCurrency,
 } from './utils/calculations';
+import {
+  calculateBusinessSummary,
+  computeCustomerBalances,
+} from './utils/businessCalculations';
 import {
   isAppwriteConfigured,
   fetchPartnersFromAppwrite,
@@ -72,10 +93,14 @@ import {
   loginWithAppwrite,
   signupWithAppwrite,
   logoutAppwrite,
+  fetchUserPreferences,
+  saveUserPreferences,
 } from './utils/appwrite';
 import { getAppTheme } from './theme';
+import { ToastProvider, useToast } from './context/ToastContext';
 
-export default function App() {
+function AppContent() {
+  const { showSuccess, showInfo, showWarning } = useToast();
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('dark');
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -84,21 +109,46 @@ export default function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [settings, setSettings] = useState<AppSettings>(getStoredSettings());
 
+  // Role and Navigation
+  const [activeRole, setActiveRole] = useState<UserRole>('INVESTOR');
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>('ALL');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'ledger' | 'statement'>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
 
-  // Modals
+  // Business Operator Data
+  const [businessCustomers, setBusinessCustomers] = useState<BusinessCustomer[]>([]);
+  const [businessTransactions, setBusinessTransactions] = useState<BusinessTransaction[]>([]);
+
+  // Modals - Investor
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [isPartnerModalOpen, setIsPartnerModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
+  // Modals - Business Operator
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<BusinessCustomer | null>(null);
+  const [isBusinessTxModalOpen, setIsBusinessTxModalOpen] = useState(false);
+  const [editingBusinessTx, setEditingBusinessTx] = useState<BusinessTransaction | null>(null);
+  const [businessTxInitialType, setBusinessTxInitialType] = useState<BusinessTransactionType>('SALE');
+  const [businessTxInitialCustomerId, setBusinessTxInitialCustomerId] = useState<string | undefined>(undefined);
+
   useEffect(() => {
     loadAllData();
   }, []);
 
+  useEffect(() => {
+    document.documentElement.style.colorScheme = themeMode;
+    if (themeMode === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
+    }
+  }, [themeMode]);
+
   const loadAllData = async () => {
-    const loadedSettings = getStoredSettings();
+    let loadedSettings = getStoredSettings();
     setSettings(loadedSettings);
     if (loadedSettings.theme) {
       setThemeMode(loadedSettings.theme);
@@ -109,6 +159,39 @@ export default function App() {
         const user = await getCurrentAppwriteUser(loadedSettings.appwrite);
         if (user) {
           setCurrentUser(user);
+
+          // Sync user-specific settings (Theme, Currency, Role)
+          let userSettings = getStoredSettings(user.id);
+          let remotePrefs: any = null;
+          try {
+            remotePrefs = await fetchUserPreferences(loadedSettings.appwrite);
+            if (remotePrefs) {
+              const appliedTheme = remotePrefs.theme || userSettings.theme || 'dark';
+              const appliedCurrCode = remotePrefs.currencyCode || userSettings.currency?.code || 'BDT';
+              const appliedCurrency =
+                DEFAULT_CURRENCIES.find((c) => c.code === appliedCurrCode) || DEFAULT_CURRENCIES[0];
+              const appliedRole = remotePrefs.role || user.role || userSettings.activeRole || 'INVESTOR';
+
+              userSettings = {
+                ...userSettings,
+                theme: appliedTheme,
+                currency: appliedCurrency,
+                activeRole: appliedRole,
+              };
+              setThemeMode(appliedTheme);
+              setActiveRole(appliedRole);
+              if (appliedRole === 'BUSINESS_OPERATOR') {
+                setActiveTab('business_dashboard');
+              }
+            }
+          } catch (prefErr) {
+            console.warn('Failed to fetch remote preferences:', prefErr);
+          }
+
+          setSettings(userSettings);
+          saveStoredSettings(userSettings, user.id);
+
+          // Load Investor data
           const [remotePartners, remoteTransactions] = await Promise.all([
             fetchPartnersFromAppwrite(loadedSettings.appwrite),
             fetchTransactionsFromAppwrite(loadedSettings.appwrite),
@@ -117,22 +200,34 @@ export default function App() {
           saveStoredPartners(remotePartners);
           setTransactions(remoteTransactions);
           saveStoredTransactions(remoteTransactions);
+
+          // Load Business data (scoped to user)
+          const storedCust = getStoredCustomers(user.id);
+          setBusinessCustomers(storedCust);
+          const storedBizTx = getStoredBusinessTransactions(user.id);
+          setBusinessTransactions(storedBizTx);
         } else {
           setCurrentUser(null);
           setPartners([]);
           setTransactions([]);
+          setBusinessCustomers(getStoredCustomers());
+          setBusinessTransactions(getStoredBusinessTransactions());
         }
       } else {
-        // Appwrite not configured
+        // Local only
         setCurrentUser(null);
         setPartners([]);
         setTransactions([]);
+        setBusinessCustomers(getStoredCustomers());
+        setBusinessTransactions(getStoredBusinessTransactions());
       }
     } catch (err) {
       console.warn('Session verification error:', err);
       setCurrentUser(null);
       setPartners([]);
       setTransactions([]);
+      setBusinessCustomers(getStoredCustomers());
+      setBusinessTransactions(getStoredBusinessTransactions());
     } finally {
       setIsCheckingAuth(false);
     }
@@ -141,7 +236,41 @@ export default function App() {
   const handleLogin = async (email: string, pass: string) => {
     const user = await loginWithAppwrite(settings.appwrite, email, pass);
     setCurrentUser(user);
-    // Refresh cloud data upon login
+    showSuccess(`Welcome back, ${user.name || user.email}!`);
+
+    // Fetch user preferences upon login
+    let userSettings = getStoredSettings(user.id);
+    let appliedRole: UserRole = user.role || userSettings.activeRole || 'INVESTOR';
+    try {
+      const remotePrefs = await fetchUserPreferences(settings.appwrite);
+      if (remotePrefs) {
+        const appliedTheme = remotePrefs.theme || userSettings.theme || 'dark';
+        const appliedCurrCode = remotePrefs.currencyCode || userSettings.currency?.code || 'BDT';
+        const appliedCurrency =
+          DEFAULT_CURRENCIES.find((c) => c.code === appliedCurrCode) || DEFAULT_CURRENCIES[0];
+        appliedRole = remotePrefs.role || user.role || userSettings.activeRole || 'INVESTOR';
+
+        userSettings = {
+          ...userSettings,
+          theme: appliedTheme,
+          currency: appliedCurrency,
+          activeRole: appliedRole,
+        };
+        setThemeMode(appliedTheme);
+      }
+    } catch (prefErr) {
+      console.warn('Failed to load user preferences on login:', prefErr);
+    }
+    setActiveRole(appliedRole);
+    if (appliedRole === 'BUSINESS_OPERATOR') {
+      setActiveTab('business_dashboard');
+    } else {
+      setActiveTab('dashboard');
+    }
+    setSettings(userSettings);
+    saveStoredSettings(userSettings, user.id);
+
+    // Refresh cloud & business data upon login
     try {
       const [remotePartners, remoteTransactions] = await Promise.all([
         fetchPartnersFromAppwrite(settings.appwrite),
@@ -154,11 +283,38 @@ export default function App() {
     } catch (err) {
       console.warn('Cloud sync error on login:', err);
     }
+
+    const storedCust = getStoredCustomers(user.id);
+    setBusinessCustomers(storedCust);
+    const storedBizTx = getStoredBusinessTransactions(user.id);
+    setBusinessTransactions(storedBizTx);
   };
 
-  const handleSignup = async (name: string, email: string, pass: string) => {
-    const user = await signupWithAppwrite(settings.appwrite, name, email, pass);
+  const handleSignup = async (name: string, email: string, pass: string, role: UserRole = 'INVESTOR') => {
+    const user = await signupWithAppwrite(settings.appwrite, name, email, pass, role);
     setCurrentUser(user);
+    setActiveRole(role);
+    if (role === 'BUSINESS_OPERATOR') {
+      setActiveTab('business_dashboard');
+    } else {
+      setActiveTab('dashboard');
+    }
+
+    const updatedSettings: AppSettings = {
+      ...settings,
+      activeRole: role,
+    };
+    setSettings(updatedSettings);
+    saveStoredSettings(updatedSettings, user.id);
+
+    if (isAppwriteConfigured(settings.appwrite)) {
+      saveUserPreferences(settings.appwrite, {
+        theme: themeMode,
+        currencyCode: settings.currency.code,
+        role,
+      }).catch(console.error);
+    }
+    showSuccess('Account created! Welcome to CapVenture.');
   };
 
   const handleLogout = async () => {
@@ -166,6 +322,40 @@ export default function App() {
     setCurrentUser(null);
     setPartners([]);
     setTransactions([]);
+    setBusinessCustomers(getStoredCustomers());
+    setBusinessTransactions(getStoredBusinessTransactions());
+    const defaultSettings = getStoredSettings();
+    setSettings(defaultSettings);
+    setThemeMode(defaultSettings.theme || 'dark');
+    setActiveRole('INVESTOR');
+    setActiveTab('dashboard');
+    showSuccess('Signed out successfully.');
+  };
+
+  const handleSwitchRole = (newRole: UserRole) => {
+    setActiveRole(newRole);
+    if (newRole === 'INVESTOR') {
+      if (activeTab.startsWith('business_')) {
+        setActiveTab('dashboard');
+      }
+    } else {
+      if (['dashboard', 'ledger', 'statement'].includes(activeTab)) {
+        setActiveTab('business_dashboard');
+      }
+    }
+
+    const updated: AppSettings = { ...settings, activeRole: newRole };
+    setSettings(updated);
+    saveStoredSettings(updated, currentUser?.id);
+
+    if (currentUser && isAppwriteConfigured(settings.appwrite)) {
+      saveUserPreferences(settings.appwrite, {
+        role: newRole,
+        theme: themeMode,
+        currencyCode: settings.currency.code,
+      }).catch(console.error);
+    }
+    showInfo(newRole === 'INVESTOR' ? 'Switched to Investor Portal.' : 'Switched to Business Operator Portal.');
   };
 
   const toggleTheme = () => {
@@ -173,9 +363,48 @@ export default function App() {
     setThemeMode(newMode);
     const updated: AppSettings = { ...settings, theme: newMode };
     setSettings(updated);
-    saveStoredSettings(updated);
+    saveStoredSettings(updated, currentUser?.id);
+
+    if (currentUser && isAppwriteConfigured(settings.appwrite)) {
+      saveUserPreferences(settings.appwrite, {
+        theme: newMode,
+        currencyCode: settings.currency.code,
+        role: activeRole,
+      }).catch(console.error);
+    }
   };
 
+  const handleSelectCurrency = (curr: CurrencyConfig) => {
+    const updated: AppSettings = { ...settings, currency: curr };
+    setSettings(updated);
+    saveStoredSettings(updated, currentUser?.id);
+
+    if (currentUser && isAppwriteConfigured(settings.appwrite)) {
+      saveUserPreferences(settings.appwrite, {
+        theme: themeMode,
+        currencyCode: curr.code,
+        role: activeRole,
+      }).catch(console.error);
+    }
+  };
+
+  const handleUpdateSettings = (newSettings: AppSettings) => {
+    setSettings(newSettings);
+    if (newSettings.theme) {
+      setThemeMode(newSettings.theme);
+    }
+    saveStoredSettings(newSettings, currentUser?.id);
+
+    if (currentUser && isAppwriteConfigured(newSettings.appwrite)) {
+      saveUserPreferences(newSettings.appwrite, {
+        theme: newSettings.theme,
+        currencyCode: newSettings.currency.code,
+        role: activeRole,
+      }).catch(console.error);
+    }
+  };
+
+  // --- INVESTOR CALCULATIONS ---
   const partnersMap = useMemo(() => {
     const map: Record<string, Partner> = {};
     for (const p of partners) {
@@ -199,35 +428,57 @@ export default function App() {
 
   const activePartner = useMemo(() => {
     if (selectedPartnerId === 'ALL') return null;
-    return partnersMap[selectedPartnerId] || null;
-  }, [selectedPartnerId, partnersMap]);
+    return partners.find((p) => p.id === selectedPartnerId) || null;
+  }, [partners, selectedPartnerId]);
 
-  const handleSaveTransaction = (
-    data: Omit<Transaction, 'id' | 'createdAt'>,
+  // --- BUSINESS OPERATOR CALCULATIONS ---
+  const customersWithBalance: CustomerWithBalance[] = useMemo(() => {
+    return computeCustomerBalances(businessCustomers, businessTransactions);
+  }, [businessCustomers, businessTransactions]);
+
+  const businessSummary: BusinessSummary = useMemo(() => {
+    return calculateBusinessSummary(businessTransactions, businessCustomers.length, customersWithBalance);
+  }, [businessTransactions, businessCustomers, customersWithBalance]);
+
+  // --- INVESTOR ACTION HANDLERS ---
+  const handleOpenAddTxModal = (_type?: TransactionType) => {
+    setEditingTx(null);
+    setIsTxModalOpen(true);
+  };
+
+  const handleSaveTransaction = async (
+    txData: Omit<Transaction, 'id' | 'createdAt'>,
     existingId?: string
   ) => {
     let updated: Transaction[];
-    let targetTx: Transaction;
-
     if (existingId) {
-      targetTx = { ...transactions.find((t) => t.id === existingId)!, ...data };
-      updated = transactions.map((t) => (t.id === existingId ? targetTx : t));
+      updated = transactions.map((t) =>
+        t.id === existingId
+          ? {
+              ...t,
+              ...txData,
+            }
+          : t
+      );
     } else {
-      targetTx = {
-        ...data,
-        id: `tx-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      const newTx: Transaction = {
+        ...txData,
+        id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         createdAt: new Date().toISOString(),
       };
-      updated = [targetTx, ...transactions];
+      updated = [newTx, ...transactions];
     }
 
     setTransactions(updated);
     saveStoredTransactions(updated);
-    setEditingTx(null);
 
     if (isAppwriteConfigured(settings.appwrite)) {
-      saveTransactionToAppwrite(settings.appwrite, targetTx).catch(console.error);
+      const target = updated.find((t) => (existingId ? t.id === existingId : true));
+      if (target) {
+        saveTransactionToAppwrite(settings.appwrite, target).catch(console.error);
+      }
     }
+    showSuccess(existingId ? 'Transaction updated.' : 'Transaction recorded.');
   };
 
   const handleDeleteTransaction = (id: string) => {
@@ -238,67 +489,81 @@ export default function App() {
     if (isAppwriteConfigured(settings.appwrite)) {
       deleteTransactionFromAppwrite(settings.appwrite, id).catch(console.error);
     }
+    showWarning('Transaction deleted.');
   };
 
   const handleDeleteMultipleTransactions = (ids: string[]) => {
-    const updated = transactions.filter((t) => !ids.includes(t.id));
+    const idSet = new Set(ids);
+    const updated = transactions.filter((t) => !idSet.has(t.id));
     setTransactions(updated);
     saveStoredTransactions(updated);
 
     if (isAppwriteConfigured(settings.appwrite)) {
       deleteMultipleTransactionsFromAppwrite(settings.appwrite, ids).catch(console.error);
     }
+    showWarning(`${ids.length} transaction${ids.length !== 1 ? 's' : ''} deleted.`);
   };
 
-  const handleOpenAddTxModal = (presetType?: TransactionType) => {
-    if (presetType) {
-      setEditingTx({
-        id: '',
-        partnerId: selectedPartnerId !== 'ALL' ? selectedPartnerId : (partners[0]?.id || ''),
-        amount: 0,
-        type: presetType,
-        date: new Date().toISOString().split('T')[0],
-        description: '',
-        createdAt: '',
-      });
-    } else {
-      setEditingTx(null);
+  const handleCollectExpectedProfit = (origTx: Transaction) => {
+    if (!origTx.expectedProfit || origTx.expectedProfit <= 0) return;
+
+    const profitAmount = origTx.expectedProfit;
+    const nowIso = new Date().toISOString().split('T')[0];
+
+    const newProfitTx: Transaction = {
+      id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      partnerId: origTx.partnerId,
+      date: nowIso,
+      type: 'PROFIT_PAYOUT',
+      amount: profitAmount,
+      paymentMethod: origTx.paymentMethod || 'Bank Transfer',
+      description: `Profit collected for advance from ${origTx.date} (${origTx.description || 'Capital advance'})`,
+      reference: origTx.reference ? `Ref: ${origTx.reference}` : undefined,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedTransactions = [newProfitTx, ...transactions];
+    setTransactions(updatedTransactions);
+    saveStoredTransactions(updatedTransactions);
+
+    if (isAppwriteConfigured(settings.appwrite)) {
+      saveTransactionToAppwrite(settings.appwrite, newProfitTx).catch(console.error);
     }
-    setIsTxModalOpen(true);
+    showSuccess('Profit collected and recorded to ledger.');
   };
 
-  const handleSavePartner = (
+  const handleSavePartner = async (
     data: Omit<Partner, 'id' | 'createdAt'>,
     existingId?: string
   ) => {
     let updated: Partner[];
-    let targetPartner: Partner;
-
     if (existingId) {
-      targetPartner = { ...partners.find((p) => p.id === existingId)!, ...data };
-      updated = partners.map((p) => (p.id === existingId ? targetPartner : p));
+      updated = partners.map((p) => (p.id === existingId ? { ...p, ...data } : p));
     } else {
-      targetPartner = {
+      const newPartner: Partner = {
         ...data,
-        id: `partner-${Date.now()}`,
+        id: `p_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         createdAt: new Date().toISOString(),
       };
-      updated = [...partners, targetPartner];
-      setSelectedPartnerId(targetPartner.id);
+      updated = [...partners, newPartner];
     }
-
     setPartners(updated);
     saveStoredPartners(updated);
 
     if (isAppwriteConfigured(settings.appwrite)) {
-      savePartnerToAppwrite(settings.appwrite, targetPartner).catch(console.error);
+      const target = updated.find((p) => (existingId ? p.id === existingId : true));
+      if (target) {
+        savePartnerToAppwrite(settings.appwrite, target).catch(console.error);
+      }
     }
+    showSuccess(existingId ? 'Partner updated.' : 'Partner added.');
   };
 
   const handleDeletePartner = (id: string) => {
     const updated = partners.filter((p) => p.id !== id);
     setPartners(updated);
     saveStoredPartners(updated);
+
     if (selectedPartnerId === id) {
       setSelectedPartnerId('ALL');
     }
@@ -306,60 +571,150 @@ export default function App() {
     if (isAppwriteConfigured(settings.appwrite)) {
       deletePartnerFromAppwrite(settings.appwrite, id).catch(console.error);
     }
+    showWarning('Partner removed.');
   };
 
   const handleExportCsv = () => {
     const csv = exportToCsv(relevantTransactions, partners);
     const filename = `ledger-statement-${selectedPartnerId}-${new Date().toISOString().split('T')[0]}.csv`;
     triggerDownload(csv, filename, 'text/csv;charset=utf-8;');
+    showSuccess('CSV exported successfully.');
+  };
+
+  // --- BUSINESS OPERATOR ACTION HANDLERS ---
+  const handleOpenAddCustomer = () => {
+    setEditingCustomer(null);
+    setIsCustomerModalOpen(true);
+  };
+
+  const handleOpenEditCustomer = (cust: BusinessCustomer) => {
+    setEditingCustomer(cust);
+    setIsCustomerModalOpen(true);
+  };
+
+  const handleSaveCustomer = (
+    data: Omit<BusinessCustomer, 'id' | 'createdAt'>,
+    existingId?: string
+  ) => {
+    let updated: BusinessCustomer[];
+    if (existingId) {
+      updated = businessCustomers.map((c) => (c.id === existingId ? { ...c, ...data } : c));
+    } else {
+      const newCustomer: BusinessCustomer = {
+        ...data,
+        id: `cust_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        userId: currentUser?.id || 'guest',
+        createdAt: new Date().toISOString(),
+      };
+      updated = [...businessCustomers, newCustomer];
+    }
+    setBusinessCustomers(updated);
+    saveStoredCustomers(updated, currentUser?.id);
+    showSuccess(existingId ? 'Customer updated.' : 'Customer added.');
+  };
+
+  const handleDeleteCustomer = (id: string) => {
+    const updated = businessCustomers.filter((c) => c.id !== id);
+    setBusinessCustomers(updated);
+    saveStoredCustomers(updated, currentUser?.id);
+    showWarning('Customer deleted.');
+  };
+
+  const handleOpenNewBusinessTx = (type?: BusinessTransactionType, customerId?: string) => {
+    setEditingBusinessTx(null);
+    setBusinessTxInitialType(type || 'SALE');
+    setBusinessTxInitialCustomerId(customerId);
+    setIsBusinessTxModalOpen(true);
+  };
+
+  const handleOpenEditBusinessTx = (tx: BusinessTransaction) => {
+    setEditingBusinessTx(tx);
+    setBusinessTxInitialType(tx.type);
+    setBusinessTxInitialCustomerId(tx.customerId);
+    setIsBusinessTxModalOpen(true);
+  };
+
+  const handleSaveBusinessTransaction = (
+    data: Omit<BusinessTransaction, 'id' | 'createdAt'>,
+    existingId?: string
+  ) => {
+    let updated: BusinessTransaction[];
+    if (existingId) {
+      updated = businessTransactions.map((tx) =>
+        tx.id === existingId
+          ? {
+              ...tx,
+              ...data,
+            }
+          : tx
+      );
+    } else {
+      const newTx: BusinessTransaction = {
+        ...data,
+        id: `btx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        userId: currentUser?.id || 'guest',
+        createdAt: new Date().toISOString(),
+      };
+      updated = [newTx, ...businessTransactions];
+    }
+    setBusinessTransactions(updated);
+    saveStoredBusinessTransactions(updated, currentUser?.id);
+    showSuccess(existingId ? 'Transaction updated.' : 'Transaction recorded.');
+  };
+
+  const handleDeleteBusinessTransaction = (id: string) => {
+    const updated = businessTransactions.filter((tx) => tx.id !== id);
+    setBusinessTransactions(updated);
+    saveStoredBusinessTransactions(updated, currentUser?.id);
+    showWarning('Transaction deleted.');
   };
 
   const muiTheme = useMemo(() => getAppTheme(themeMode), [themeMode]);
 
-  // 1. Session verification loading screen
+  // Loading screen content
+  const loadingScreen = (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: 'background.default',
+        gap: 2.5,
+      }}
+    >
+      <Box
+        component="img"
+        src="/logo.svg"
+        alt="CapVenture"
+        sx={{
+          width: 72,
+          height: 72,
+          borderRadius: 4,
+          boxShadow: '0 12px 32px rgba(59, 130, 246, 0.4)',
+        }}
+      />
+      <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
+        CapVenture
+      </Typography>
+      <CircularProgress size={28} thickness={4} />
+      <Typography variant="caption" color="text.secondary">
+        Verifying security session...
+      </Typography>
+    </Box>
+  );
+
   if (isCheckingAuth) {
     return (
       <ThemeProvider theme={muiTheme}>
         <CssBaseline />
-        <Box
-          sx={{
-            minHeight: '100vh',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            bgcolor: 'background.default',
-            gap: 2.5,
-          }}
-        >
-          <Box
-            sx={{
-              width: 52,
-              height: 52,
-              borderRadius: 3,
-              bgcolor: 'primary.main',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              boxShadow: '0 8px 24px rgba(25, 118, 210, 0.35)',
-            }}
-          >
-            <TrendingUp fontSize="medium" />
-          </Box>
-          <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
-            CapVenture
-          </Typography>
-          <CircularProgress size={28} thickness={4} />
-          <Typography variant="caption" color="text.secondary">
-            Verifying security session...
-          </Typography>
-        </Box>
+        {loadingScreen}
       </ThemeProvider>
     );
   }
 
-  // 2. Unauthenticated: Only display Auth Page
+  // 2. Unauthenticated: Display Auth Page
   if (!currentUser) {
     return (
       <ThemeProvider theme={muiTheme}>
@@ -380,20 +735,19 @@ export default function App() {
       <CssBaseline />
       <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
         
-        {/* Top Material AppBar */}
+        {/* Top Material AppBar with Role Switcher */}
         <Navbar
+          activeRole={activeRole}
+          onSwitchRole={handleSwitchRole}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           partners={partners}
           selectedPartnerId={selectedPartnerId}
           onSelectPartner={setSelectedPartnerId}
           currentCurrency={settings.currency}
-          onSelectCurrency={(curr) => {
-            const updated = { ...settings, currency: curr };
-            setSettings(updated);
-            saveStoredSettings(updated);
-          }}
+          onSelectCurrency={handleSelectCurrency}
           onOpenTransactionModal={() => handleOpenAddTxModal()}
+          onOpenBusinessTxModal={() => handleOpenNewBusinessTx('SALE')}
           onOpenPartnerModal={() => setIsPartnerModalOpen(true)}
           onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
           isAppwriteEnabled={Boolean(settings.appwrite?.enabled)}
@@ -404,270 +758,318 @@ export default function App() {
         />
 
         {/* Main Viewport Container */}
-        <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, flex: 1, display: 'flex', flexDirection: 'column', gap: 3.5 }}>
+        <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3, md: 4 }, px: { xs: 1.5, sm: 3 }, flex: 1, display: 'flex', flexDirection: 'column', gap: { xs: 2.5, md: 3.5 } }}>
           
-          {/* Active Partner Banner */}
-          {activePartner && (
-            <Paper
-              variant="outlined"
-              sx={{
-                p: 2.5,
-                borderRadius: 3,
-                display: 'flex',
-                flexDirection: { xs: 'column', sm: 'row' },
-                justifyContent: 'space-between',
-                alignItems: { xs: 'flex-start', sm: 'center' },
-                gap: 2,
-              }}
-              className="no-print"
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Avatar
+          {/* ======================================================== */}
+          {/* INVESTOR PORTAL VIEWS */}
+          {/* ======================================================== */}
+          {activeRole === 'INVESTOR' && (
+            <>
+              {/* Active Partner Filter Banner */}
+              {activePartner && (
+                <Paper
+                  variant="outlined"
                   sx={{
-                    bgcolor: activePartner.avatarColor || 'primary.main',
-                    width: 48,
-                    height: 48,
-                    fontWeight: 700,
+                    p: 2.5,
+                    borderRadius: 3,
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    justifyContent: 'space-between',
+                    alignItems: { xs: 'flex-start', sm: 'center' },
+                    gap: 2,
                   }}
+                  className="no-print"
                 >
-                  {activePartner.name.charAt(0).toUpperCase()}
-                </Avatar>
-                <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>
-                      {activePartner.name}
-                    </Typography>
-                    <Chip label="Filtered View" size="small" color="primary" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
-                  </Box>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 0.5 }}>
-                    {activePartner.phone && (
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Phone style={{ fontSize: 13 }} /> {activePartner.phone}
-                      </Typography>
-                    )}
-                    {activePartner.email && (
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Mail style={{ fontSize: 13 }} /> {activePartner.email}
-                      </Typography>
-                    )}
-                    {activePartner.notes && (
-                      <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                        Terms: {activePartner.notes}
-                      </Typography>
-                    )}
-                  </Box>
-                </Box>
-              </Box>
-
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button size="small" variant="outlined" onClick={() => setSelectedPartnerId('ALL')}>
-                  All Partners
-                </Button>
-                <Button size="small" variant="contained" onClick={() => setActiveTab('statement')} startIcon={<ReceiptLong />}>
-                  Statement
-                </Button>
-              </Box>
-            </Paper>
-          )}
-
-          {/* DASHBOARD TAB */}
-          {activeTab === 'dashboard' && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3.5 }}>
-              
-              {/* Material KPI Cards */}
-              <KpiCards summary={summary} currency={settings.currency} />
-
-              {/* Quick Action Shortcut Cards */}
-              <Grid container spacing={2} className="no-print">
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <Card>
-                    <CardActionArea onClick={() => handleOpenAddTxModal('INVESTMENT_OUT')} sx={{ p: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>
-                            <CallMade fontSize="small" />
-                          </Avatar>
-                          <Box>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Disburse Capital</Typography>
-                            <Typography variant="caption" color="text.secondary">Advance funds to partner</Typography>
-                          </Box>
-                        </Box>
-                        <ArrowForward fontSize="small" color="action" />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Avatar
+                      sx={{
+                        bgcolor: activePartner.avatarColor || 'primary.main',
+                        width: 48,
+                        height: 48,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {activePartner.name.charAt(0).toUpperCase()}
+                    </Avatar>
+                    <Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>
+                          {activePartner.name}
+                        </Typography>
+                        <Chip label="Filtered View" size="small" color="primary" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
                       </Box>
-                    </CardActionArea>
-                  </Card>
-                </Grid>
-
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <Card>
-                    <CardActionArea onClick={() => handleOpenAddTxModal('PRINCIPAL_RETURN')} sx={{ p: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <Avatar sx={{ bgcolor: 'warning.main', width: 36, height: 36 }}>
-                            <CallReceived fontSize="small" />
-                          </Avatar>
-                          <Box>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Record Principal Back</Typography>
-                            <Typography variant="caption" color="text.secondary">Repay borrowed principal</Typography>
-                          </Box>
-                        </Box>
-                        <ArrowForward fontSize="small" color="action" />
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 0.5 }}>
+                        {activePartner.phone && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Phone style={{ fontSize: 13 }} /> {activePartner.phone}
+                          </Typography>
+                        )}
+                        {activePartner.email && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Mail style={{ fontSize: 13 }} /> {activePartner.email}
+                          </Typography>
+                        )}
+                        {activePartner.notes && (
+                          <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                            Terms: {activePartner.notes}
+                          </Typography>
+                        )}
                       </Box>
-                    </CardActionArea>
-                  </Card>
-                </Grid>
-
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <Card>
-                    <CardActionArea onClick={() => handleOpenAddTxModal('PROFIT_PAYOUT')} sx={{ p: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <Avatar sx={{ bgcolor: 'success.main', width: 36, height: 36 }}>
-                            <TrendingUp fontSize="small" />
-                          </Avatar>
-                          <Box>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Record Profit Share</Typography>
-                            <Typography variant="caption" color="text.secondary">Collect earned profit</Typography>
-                          </Box>
-                        </Box>
-                        <ArrowForward fontSize="small" color="action" />
-                      </Box>
-                    </CardActionArea>
-                  </Card>
-                </Grid>
-              </Grid>
-
-              {/* Visual Analytics & Charts */}
-              <AnalyticsCharts
-                transactions={relevantTransactions}
-                summary={summary}
-                currency={settings.currency}
-              />
-
-              {/* Recent Activity Mini-Feed */}
-              <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Schedule fontSize="small" color="action" />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                      Recent Transactions
-                    </Typography>
+                    </Box>
                   </Box>
-                  <Button size="small" onClick={() => setActiveTab('ledger')} endIcon={<ArrowForward />}>
-                    View All
-                  </Button>
-                </Box>
 
-                <List disablePadding>
-                  {transactionsWithBalance.slice(0, 5).map((t, idx) => {
-                    const isProfit = t.type === 'PROFIT_PAYOUT';
-                    const isReturn = t.type === 'PRINCIPAL_RETURN';
-                    const isReinvest = t.type === 'REINVEST';
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button size="small" variant="outlined" onClick={() => setSelectedPartnerId('ALL')}>
+                      All Partners
+                    </Button>
+                    <Button size="small" variant="contained" onClick={() => setActiveTab('statement')} startIcon={<ReceiptLong />}>
+                      Statement
+                    </Button>
+                  </Box>
+                </Paper>
+              )}
 
-                    return (
-                      <React.Fragment key={t.id}>
-                        {idx > 0 && <Divider component="li" />}
-                        <ListItem
-                          sx={{
-                            px: 2,
-                            py: 1.5,
-                            borderRadius: 1,
-                            '&:hover': { bgcolor: 'action.hover' },
-                          }}
-                          secondaryAction={
-                            <Box sx={{ textAlign: 'right' }}>
-                              <Typography
-                                variant="subtitle2"
-                                sx={{
-                                  fontWeight: 700,
-                                  color: isProfit || isReinvest ? 'success.main' : isReturn ? 'warning.main' : 'primary.main',
-                                }}
-                              >
-                                {isProfit ? '+' : ''}
-                                {formatCurrency(t.amount, settings.currency)}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
-                                Bal: {formatCurrency(t.runningPrincipal, settings.currency)}
-                              </Typography>
-                            </Box>
-                          }
-                        >
-                          <ListItemAvatar>
-                            <Avatar
-                              sx={{
-                                width: 34,
-                                height: 34,
-                                bgcolor: isProfit
-                                  ? 'success.main'
-                                  : isReturn
-                                  ? 'warning.main'
-                                  : isReinvest
-                                  ? 'secondary.main'
-                                  : 'primary.main',
-                              }}
-                            >
-                              {isProfit ? <TrendingUp fontSize="small" /> : isReturn ? <CallReceived fontSize="small" /> : <CallMade fontSize="small" />}
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                  {t.partnerName}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  • {t.date}
-                                </Typography>
+              {/* DASHBOARD TAB */}
+              {activeTab === 'dashboard' && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3.5 }}>
+                  
+                  {/* Material KPI Cards */}
+                  <KpiCards summary={summary} currency={settings.currency} />
+
+                  {/* Quick Action Shortcut Cards */}
+                  <Grid container spacing={2} className="no-print">
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Card>
+                        <CardActionArea onClick={() => handleOpenAddTxModal('INVESTMENT_OUT')} sx={{ p: 2 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>
+                                <CallMade fontSize="small" />
+                              </Avatar>
+                              <Box>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Disburse Capital</Typography>
+                                <Typography variant="caption" color="text.secondary">Advance funds to partner</Typography>
                               </Box>
-                            }
-                            secondary={
-                              <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 300, display: 'block' }}>
-                                {t.description || 'Transaction entry'}
-                              </Typography>
-                            }
-                          />
-                        </ListItem>
-                      </React.Fragment>
-                    );
-                  })}
-                </List>
-              </Paper>
+                            </Box>
+                            <ArrowForward fontSize="small" color="action" />
+                          </Box>
+                        </CardActionArea>
+                      </Card>
+                    </Grid>
 
-            </Box>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Card>
+                        <CardActionArea onClick={() => handleOpenAddTxModal('PRINCIPAL_RETURN')} sx={{ p: 2 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              <Avatar sx={{ bgcolor: 'warning.main', width: 36, height: 36 }}>
+                                <CallReceived fontSize="small" />
+                              </Avatar>
+                              <Box>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Record Principal Back</Typography>
+                                <Typography variant="caption" color="text.secondary">Repay borrowed principal</Typography>
+                              </Box>
+                            </Box>
+                            <ArrowForward fontSize="small" color="action" />
+                          </Box>
+                        </CardActionArea>
+                      </Card>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Card>
+                        <CardActionArea onClick={() => handleOpenAddTxModal('PROFIT_PAYOUT')} sx={{ p: 2 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              <Avatar sx={{ bgcolor: 'success.main', width: 36, height: 36 }}>
+                                <TrendingUp fontSize="small" />
+                              </Avatar>
+                              <Box>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Record Profit Share</Typography>
+                                <Typography variant="caption" color="text.secondary">Collect earned profit</Typography>
+                              </Box>
+                            </Box>
+                            <ArrowForward fontSize="small" color="action" />
+                          </Box>
+                        </CardActionArea>
+                      </Card>
+                    </Grid>
+                  </Grid>
+
+                  {/* Visual Analytics & Charts */}
+                  <AnalyticsCharts
+                    transactions={relevantTransactions}
+                    summary={summary}
+                    currency={settings.currency}
+                  />
+
+                  {/* Recent Activity Mini-Feed */}
+                  <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Schedule fontSize="small" color="action" />
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                          Recent Transactions
+                        </Typography>
+                      </Box>
+                      <Button size="small" onClick={() => setActiveTab('ledger')} endIcon={<ArrowForward />}>
+                        View All
+                      </Button>
+                    </Box>
+                    <List disablePadding>
+                      {relevantTransactions.slice(0, 5).map((t, idx) => {
+                        const isProfit = t.type === 'PROFIT_PAYOUT';
+                        const isReturn = t.type === 'PRINCIPAL_RETURN';
+                        return (
+                          <React.Fragment key={t.id}>
+                            {idx > 0 && <Divider component="li" />}
+                            <ListItem
+                              secondaryAction={
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    fontWeight: 700,
+                                    color: isProfit
+                                      ? 'success.main'
+                                      : isReturn
+                                      ? 'warning.main'
+                                      : 'text.primary',
+                                  }}
+                                >
+                                  {isProfit ? '+' : isReturn ? '↓' : '↑'}
+                                  {formatCurrency(t.amount, settings.currency)}
+                                </Typography>
+                              }
+                              sx={{ py: 1.5, px: 0 }}
+                            >
+                              <ListItemAvatar>
+                                <Avatar
+                                  sx={{
+                                    bgcolor: isProfit
+                                      ? 'success.main'
+                                      : isReturn
+                                      ? 'warning.main'
+                                      : 'primary.main',
+                                  }}
+                                >
+                                  {isProfit ? <TrendingUp fontSize="small" /> : isReturn ? <CallReceived fontSize="small" /> : <CallMade fontSize="small" />}
+                                </Avatar>
+                              </ListItemAvatar>
+                              <ListItemText
+                                primary={
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                      {partnersMap[t.partnerId]?.name || 'Partner'}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      • {t.date}
+                                    </Typography>
+                                  </Box>
+                                }
+                                secondary={
+                                  <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 300, display: 'block' }}>
+                                    {t.description || 'Transaction entry'}
+                                  </Typography>
+                                }
+                              />
+                            </ListItem>
+                          </React.Fragment>
+                        );
+                      })}
+                    </List>
+                  </Paper>
+
+                </Box>
+              )}
+
+              {/* LEDGER TAB */}
+              {activeTab === 'ledger' && (
+                <LedgerTable
+                  transactionsWithBalance={transactionsWithBalance}
+                  currency={settings.currency}
+                  onEditTransaction={(tx) => {
+                    setEditingTx(tx);
+                    setIsTxModalOpen(true);
+                  }}
+                  onDeleteTransaction={handleDeleteTransaction}
+                  onDeleteMultipleTransactions={handleDeleteMultipleTransactions}
+                  onExportCsv={handleExportCsv}
+                  onOpenAddModal={() => handleOpenAddTxModal()}
+                  onCollectProfit={handleCollectExpectedProfit}
+                  partners={partners}
+                />
+              )}
+
+              {/* STATEMENT TAB */}
+              {activeTab === 'statement' && (
+                <StatementView
+                  partner={activePartner}
+                  allPartners={partners}
+                  onSelectPartner={setSelectedPartnerId}
+                  transactionsWithBalance={transactionsWithBalance}
+                  summary={summary}
+                  currency={settings.currency}
+                />
+              )}
+            </>
           )}
 
-          {/* LEDGER TAB */}
-          {activeTab === 'ledger' && (
-            <LedgerTable
-              transactionsWithBalance={transactionsWithBalance}
-              currency={settings.currency}
-              onEditTransaction={(tx) => {
-                setEditingTx(tx);
-                setIsTxModalOpen(true);
-              }}
-              onDeleteTransaction={handleDeleteTransaction}
-              onDeleteMultipleTransactions={handleDeleteMultipleTransactions}
-              onExportCsv={handleExportCsv}
-              onOpenAddModal={() => handleOpenAddTxModal()}
-              partners={partners}
-            />
-          )}
+          {/* ======================================================== */}
+          {/* BUSINESS OPERATOR PORTAL VIEWS */}
+          {/* ======================================================== */}
+          {activeRole === 'BUSINESS_OPERATOR' && (
+            <>
+              {/* BUSINESS OVERVIEW / DASHBOARD */}
+              {activeTab === 'business_dashboard' && (
+                <BusinessDashboard
+                  summary={businessSummary}
+                  customersWithBalance={customersWithBalance}
+                  recentTransactions={businessTransactions}
+                  currency={settings.currency}
+                  onOpenTransactionModal={(type, customerId) =>
+                    handleOpenNewBusinessTx(type, customerId)
+                  }
+                  onOpenCustomerModal={handleOpenAddCustomer}
+                  onViewAllCustomers={() => setActiveTab('business_customers')}
+                  onViewAllTransactions={() => setActiveTab('business_ledger')}
+                />
+              )}
 
-          {/* STATEMENT TAB */}
-          {activeTab === 'statement' && (
-            <StatementView
-              partner={activePartner}
-              allPartners={partners}
-              onSelectPartner={setSelectedPartnerId}
-              transactionsWithBalance={transactionsWithBalance}
-              summary={summary}
-              currency={settings.currency}
-            />
+              {/* BUSINESS SALES & DUES LEDGER */}
+              {activeTab === 'business_ledger' && (
+                <BusinessLedgerTable
+                  transactions={businessTransactions}
+                  currency={settings.currency}
+                  onEditTransaction={handleOpenEditBusinessTx}
+                  onDeleteTransaction={handleDeleteBusinessTransaction}
+                  onNewTransaction={(type) => handleOpenNewBusinessTx(type)}
+                />
+              )}
+
+              {/* CUSTOMERS & RECEIVABLES TABLE */}
+              {activeTab === 'business_customers' && (
+                <CustomersTable
+                  customers={customersWithBalance}
+                  currency={settings.currency}
+                  onAddCustomer={handleOpenAddCustomer}
+                  onEditCustomer={handleOpenEditCustomer}
+                  onDeleteCustomer={handleDeleteCustomer}
+                  onCollectDue={(cust) =>
+                    handleOpenNewBusinessTx('PAYMENT_RECEIVED', cust.id)
+                  }
+                  onNewSale={(cust) => handleOpenNewBusinessTx('SALE', cust.id)}
+                />
+              )}
+            </>
           )}
 
         </Container>
 
-        {/* Modals */}
+        {/* ======================================================== */}
+        {/* MODALS */}
+        {/* ======================================================== */}
+
+        {/* Investor Modals */}
         <TransactionModal
           isOpen={isTxModalOpen}
           onClose={() => {
@@ -693,7 +1095,7 @@ export default function App() {
           isOpen={isSettingsModalOpen}
           onClose={() => setIsSettingsModalOpen(false)}
           settings={settings}
-          onUpdateSettings={setSettings}
+          onUpdateSettings={handleUpdateSettings}
           onDataReloaded={loadAllData}
           onExportCsv={handleExportCsv}
         />
@@ -704,6 +1106,35 @@ export default function App() {
           onLogin={handleLogin}
           onSignup={handleSignup}
           onContinueAsGuest={() => setIsAuthModalOpen(false)}
+        />
+
+        {/* Business Operator Modals */}
+        <CustomerModal
+          isOpen={isCustomerModalOpen}
+          onClose={() => {
+            setIsCustomerModalOpen(false);
+            setEditingCustomer(null);
+          }}
+          onSave={handleSaveCustomer}
+          editingCustomer={editingCustomer}
+        />
+
+        <BusinessTransactionModal
+          isOpen={isBusinessTxModalOpen}
+          onClose={() => {
+            setIsBusinessTxModalOpen(false);
+            setEditingBusinessTx(null);
+            setBusinessTxInitialCustomerId(undefined);
+          }}
+          onSave={handleSaveBusinessTransaction}
+          customers={businessCustomers}
+          editingTransaction={editingBusinessTx}
+          currency={settings.currency}
+          initialType={businessTxInitialType}
+          initialCustomerId={businessTxInitialCustomerId}
+          onOpenCustomerModal={() => {
+            setIsCustomerModalOpen(true);
+          }}
         />
 
         {/* Material Footer */}
@@ -726,5 +1157,13 @@ export default function App() {
 
       </Box>
     </ThemeProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 }

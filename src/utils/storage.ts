@@ -1,9 +1,11 @@
-import { AppSettings, DEFAULT_APPWRITE_CONFIG, DEFAULT_CURRENCIES, Partner, Transaction } from '../types';
+import { AppSettings, BusinessCustomer, BusinessTransaction, DEFAULT_APPWRITE_CONFIG, DEFAULT_CURRENCIES, Partner, Transaction } from '../types';
 
 const STORAGE_KEYS = {
   PARTNERS: 'capventure_partners_v1',
   TRANSACTIONS: 'capventure_transactions_v1',
   SETTINGS: 'capventure_settings_v1',
+  CUSTOMERS: 'capventure_business_customers_v1',
+  BUSINESS_TXS: 'capventure_business_txs_v1',
 };
 
 export const INITIAL_DEMO_PARTNERS: Partner[] = [
@@ -130,7 +132,7 @@ export const INITIAL_DEMO_TRANSACTIONS: Transaction[] = [
 ];
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  currency: DEFAULT_CURRENCIES[0], // USD default
+  currency: DEFAULT_CURRENCIES[0], // BDT default (৳)
   appwrite: DEFAULT_APPWRITE_CONFIG,
   useSupabase: false,
   theme: 'dark',
@@ -177,14 +179,78 @@ export function saveStoredTransactions(transactions: Transaction[]): void {
   }
 }
 
-export function getStoredSettings(): AppSettings {
+// Business Operator Storage operations
+export function getStoredCustomers(userId?: string): BusinessCustomer[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    const key = userId ? `${STORAGE_KEYS.CUSTOMERS}_${userId}` : STORAGE_KEYS.CUSTOMERS;
+    let raw = localStorage.getItem(key);
+    if (!raw && userId) {
+      raw = localStorage.getItem(STORAGE_KEYS.CUSTOMERS);
+    }
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredCustomers(customers: BusinessCustomer[], userId?: string): void {
+  try {
+    const serialized = JSON.stringify(customers);
+    localStorage.setItem(STORAGE_KEYS.CUSTOMERS, serialized);
+    if (userId) {
+      localStorage.setItem(`${STORAGE_KEYS.CUSTOMERS}_${userId}`, serialized);
+    }
+  } catch (err) {
+    console.error('Failed to save customers:', err);
+  }
+}
+
+export function getStoredBusinessTransactions(userId?: string): BusinessTransaction[] {
+  try {
+    const key = userId ? `${STORAGE_KEYS.BUSINESS_TXS}_${userId}` : STORAGE_KEYS.BUSINESS_TXS;
+    let raw = localStorage.getItem(key);
+    if (!raw && userId) {
+      raw = localStorage.getItem(STORAGE_KEYS.BUSINESS_TXS);
+    }
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredBusinessTransactions(transactions: BusinessTransaction[], userId?: string): void {
+  try {
+    const serialized = JSON.stringify(transactions);
+    localStorage.setItem(STORAGE_KEYS.BUSINESS_TXS, serialized);
+    if (userId) {
+      localStorage.setItem(`${STORAGE_KEYS.BUSINESS_TXS}_${userId}`, serialized);
+    }
+  } catch (err) {
+    console.error('Failed to save business transactions:', err);
+  }
+}
+
+export function getStoredSettings(userId?: string): AppSettings {
+  try {
+    const userKey = userId ? `${STORAGE_KEYS.SETTINGS}_user_${userId}` : null;
+    let raw = userKey ? localStorage.getItem(userKey) : null;
+    if (!raw) {
+      raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    }
     if (!raw) return DEFAULT_SETTINGS;
     const parsed = JSON.parse(raw);
+
+    // Resolve currency; default to BDT if none or invalid
+    const currency = parsed.currency?.code
+      ? DEFAULT_CURRENCIES.find((c) => c.code === parsed.currency.code) || parsed.currency
+      : DEFAULT_CURRENCIES[0];
+
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
+      currency,
       appwrite: {
         ...DEFAULT_APPWRITE_CONFIG,
         ...(parsed.appwrite || {}),
@@ -195,9 +261,13 @@ export function getStoredSettings(): AppSettings {
   }
 }
 
-export function saveStoredSettings(settings: AppSettings): void {
+export function saveStoredSettings(settings: AppSettings, userId?: string): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    const serialized = JSON.stringify(settings);
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, serialized);
+    if (userId) {
+      localStorage.setItem(`${STORAGE_KEYS.SETTINGS}_user_${userId}`, serialized);
+    }
   } catch (err) {
     console.error('Failed to save settings:', err);
   }

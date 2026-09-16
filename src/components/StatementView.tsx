@@ -78,14 +78,13 @@ export const StatementView: React.FC<StatementViewProps> = ({
           </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, alignItems: { xs: 'stretch', sm: 'center' } }}>
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 } }}>
             <Select
               value={partner?.id || 'ALL'}
               onChange={(e) => onSelectPartner(e.target.value)}
               sx={{ fontSize: '0.8125rem' }}
             >
-              <option value="ALL">All Consolidated Records</option>
               <MenuItem value="ALL">All Consolidated Records</MenuItem>
               {allPartners.map((p) => (
                 <MenuItem key={p.id} value={p.id}>
@@ -101,6 +100,7 @@ export const StatementView: React.FC<StatementViewProps> = ({
             startIcon={<Print />}
             onClick={handlePrint}
             size="small"
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
           >
             Print / Save PDF
           </Button>
@@ -114,6 +114,14 @@ export const StatementView: React.FC<StatementViewProps> = ({
           p: { xs: 3, md: 5 },
           borderRadius: 3,
           backgroundColor: 'background.paper',
+          '@media print': {
+            backgroundColor: '#ffffff !important',
+            color: '#000000 !important',
+            border: 'none !important',
+            boxShadow: 'none !important',
+            p: 0,
+            m: 0,
+          },
         }}
       >
         {/* Document Header */}
@@ -195,8 +203,8 @@ export const StatementView: React.FC<StatementViewProps> = ({
         )}
 
         {/* Itemized Table */}
-        <TableContainer sx={{ mb: 6 }}>
-          <Table size="small">
+        <TableContainer sx={{ mb: 6, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <Table size="small" sx={{ minWidth: 620 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Date</TableCell>

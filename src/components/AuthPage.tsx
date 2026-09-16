@@ -15,6 +15,7 @@ import {
   Container,
   Tooltip,
   useTheme,
+  Paper,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -28,11 +29,14 @@ import {
   Brightness4,
   Brightness7,
   CloudDone,
+  Storefront,
 } from '@mui/icons-material';
+
+import { UserRole } from '../types';
 
 interface AuthPageProps {
   onLogin: (email: string, password: string) => Promise<void>;
-  onSignup: (name: string, email: string, password: string) => Promise<void>;
+  onSignup: (name: string, email: string, password: string, role?: UserRole) => Promise<void>;
   themeMode: 'light' | 'dark';
   onToggleTheme: () => void;
 }
@@ -49,6 +53,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [selectedRole, setSelectedRole] = useState<UserRole>('INVESTOR');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +93,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       if (tabIndex === 0) {
         await onLogin(email.trim(), password);
       } else {
-        await onSignup(name.trim(), email.trim(), password);
+        await onSignup(name.trim(), email.trim(), password, selectedRole);
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please check your credentials.');
@@ -119,28 +124,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box
-            sx={{
-              width: 36,
-              height: 36,
-              borderRadius: 2,
-              bgcolor: 'primary.main',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              boxShadow: theme.palette.mode === 'dark'
-                ? '0 4px 12px rgba(25, 118, 210, 0.4)'
-                : '0 4px 12px rgba(25, 118, 210, 0.25)',
-            }}
-          >
-            <TrendingUp fontSize="small" />
-          </Box>
+            component="img"
+            src="/logo.svg"
+            alt="CapVenture"
+            sx={{ width: 36, height: 36, borderRadius: 1.5, flexShrink: 0 }}
+          />
           <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
               CapVenture
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6875rem' }}>
-              Capital & Profit Tracker
+              Capital &amp; Profit Tracker
             </Typography>
           </Box>
         </Box>
@@ -179,20 +173,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             {/* Header */}
             <Box sx={{ textAlign: 'center', mb: 3 }}>
               <Box
+                component="img"
+                src="/logo.svg"
+                alt="CapVenture"
                 sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(25, 118, 210, 0.15)' : 'rgba(25, 118, 210, 0.1)',
-                  color: 'primary.main',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  width: 64,
+                  height: 64,
+                  borderRadius: 3,
                   mb: 1.5,
+                  boxShadow: '0 8px 24px rgba(59, 130, 246, 0.3)',
                 }}
-              >
-                <LockOutlined />
-              </Box>
+              />
               <Typography variant="h5" sx={{ fontWeight: 700 }}>
                 {tabIndex === 0 ? 'Sign In' : 'Create Account'}
               </Typography>
@@ -327,6 +318,79 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     },
                   }}
                 />
+              )}
+
+              {tabIndex === 1 && (
+                <Box sx={{ my: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block', fontWeight: 600 }}>
+                    SELECT YOUR ACCOUNT ROLE
+                  </Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                    <Paper
+                      variant="outlined"
+                      onClick={() => setSelectedRole('INVESTOR')}
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        border: '2px solid',
+                        borderColor: selectedRole === 'INVESTOR' ? 'primary.main' : 'divider',
+                        bgcolor: selectedRole === 'INVESTOR'
+                          ? theme.palette.mode === 'dark'
+                            ? 'rgba(25, 118, 210, 0.15)'
+                            : 'rgba(25, 118, 210, 0.06)'
+                          : 'transparent',
+                        textAlign: 'center',
+                        transition: 'all 0.15s ease-in-out',
+                      }}
+                    >
+                      <TrendingUp
+                        sx={{
+                          fontSize: 26,
+                          color: selectedRole === 'INVESTOR' ? 'primary.main' : 'text.secondary',
+                        }}
+                      />
+                      <Typography variant="subtitle2" sx={{ mt: 0.5, fontWeight: 700 }}>
+                        Investor
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.6875rem' }}>
+                        Investments & Profit
+                      </Typography>
+                    </Paper>
+
+                    <Paper
+                      variant="outlined"
+                      onClick={() => setSelectedRole('BUSINESS_OPERATOR')}
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        border: '2px solid',
+                        borderColor: selectedRole === 'BUSINESS_OPERATOR' ? 'primary.main' : 'divider',
+                        bgcolor: selectedRole === 'BUSINESS_OPERATOR'
+                          ? theme.palette.mode === 'dark'
+                            ? 'rgba(25, 118, 210, 0.15)'
+                            : 'rgba(25, 118, 210, 0.06)'
+                          : 'transparent',
+                        textAlign: 'center',
+                        transition: 'all 0.15s ease-in-out',
+                      }}
+                    >
+                      <Storefront
+                        sx={{
+                          fontSize: 26,
+                          color: selectedRole === 'BUSINESS_OPERATOR' ? 'primary.main' : 'text.secondary',
+                        }}
+                      />
+                      <Typography variant="subtitle2" sx={{ mt: 0.5, fontWeight: 700 }}>
+                        Business Operator
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.6875rem' }}>
+                        Sales, Dues & Customers
+                      </Typography>
+                    </Paper>
+                  </Box>
+                </Box>
               )}
 
               <Button

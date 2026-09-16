@@ -1,15 +1,27 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <!-- Favicon & PWA icons -->
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <!-- PWA / App meta -->
+    <meta name="theme-color" content="#0f1729" />
+    <meta name="application-name" content="CapVenture" />
+    <meta name="description" content="CapVenture — Business Investment & Profit Tracker. Track capital, profits, partners and business operations in one place." />
+    <!-- Open Graph -->
+    <meta property="og:title" content="CapVenture" />
+    <meta property="og:description" content="Business Investment & Profit Tracker" />
+    <meta property="og:image" content="/logo.png" />
+    <meta property="og:type" content="website" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CapVenture - Business Investment & Profit Tracker</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   </head>
-  <body class="bg-slate-950 text-slate-100 font-['Plus_Jakarta_Sans',sans-serif] antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -28,6 +28,7 @@ import {
   Menu,
   MenuItem,
   useTheme,
+  alpha,
 } from '@mui/material';
 import {
   Search,
@@ -41,6 +42,7 @@ import {
   Loop,
   FilterList,
   Close,
+  CheckCircle,
 } from '@mui/icons-material';
 import { CurrencyConfig, Partner, Transaction, TransactionType, TransactionWithRunningBalance } from '../types';
 import { formatCurrency } from '../utils/calculations';
@@ -57,6 +59,7 @@ interface LedgerTableProps {
   onDeleteMultipleTransactions?: (ids: string[]) => void;
   onExportCsv: () => void;
   onOpenAddModal: () => void;
+  onCollectProfit?: (transaction: Transaction) => void;
   partners?: Partner[];
 }
 
@@ -68,6 +71,7 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
   onDeleteMultipleTransactions,
   onExportCsv,
   onOpenAddModal,
+  onCollectProfit,
   partners = [],
 }) => {
   const theme = useTheme();
@@ -210,11 +214,17 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
     let invested = 0;
     let returned = 0;
     let profit = 0;
-    let expectedProfit = 0;
+    let pendingExpectedProfit = 0;
     for (const t of filtered) {
       if (t.type === 'INVESTMENT_OUT') {
         invested += t.amount;
-        if (t.expectedProfit) expectedProfit += t.expectedProfit;
+        const isResolved = Boolean(
+          t.profitResolved ||
+          transactionsWithBalance.some((tx) => tx.type === 'PROFIT_PAYOUT' && tx.relatedTxId === t.id)
+        );
+        if (t.expectedProfit && !isResolved) {
+          pendingExpectedProfit += t.expectedProfit;
+        }
       } else if (t.type === 'PRINCIPAL_RETURN') {
         returned += t.amount;
       } else if (t.type === 'PROFIT_PAYOUT') {
@@ -224,8 +234,8 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
         profit += t.amount;
       }
     }
-    return { invested, returned, profit, expectedProfit };
-  }, [filtered]);
+    return { invested, returned, profit, pendingExpectedProfit };
+  }, [filtered, transactionsWithBalance]);
 
   // Trigger Bulk Deletion
   const handleTriggerBulkDelete = () => {
@@ -379,7 +389,7 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
         /* STANDARD HEADER CONTROLS (Search & Filters) */
         <Box
           sx={{
-            p: 2.5,
+            p: { xs: 1.75, sm: 2.5 },
             display: 'flex',
             flexDirection: { xs: 'column', md: 'row' },
             gap: 2,
@@ -395,6 +405,7 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
               gap: 1.5,
               alignItems: { xs: 'stretch', sm: 'center' },
               flex: 1,
+              flexWrap: 'wrap',
             }}
           >
             <TextField
@@ -414,7 +425,7 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
                   ),
                 },
               }}
-              sx={{ minWidth: { sm: 240 }, maxWidth: { md: 280 } }}
+              sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 220 }, maxWidth: { md: 280 } }}
             />
 
             <ToggleButtonGroup
@@ -427,7 +438,14 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
                 }
               }}
               size="small"
-              sx={{ overflowX: 'auto' }}
+              sx={{
+                overflowX: 'auto',
+                maxWidth: '100%',
+                py: 0.5,
+                '& .MuiToggleButton-root': {
+                  whiteSpace: 'nowrap',
+                },
+              }}
             >
               <ToggleButton value="ALL" sx={{ px: 1.5, fontSize: '0.75rem', fontWeight: 600 }}>
                 All ({transactionsWithBalance.length})
@@ -453,7 +471,7 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
               color={dateFilter !== 'ALL' ? 'primary' : 'inherit'}
               startIcon={<FilterList fontSize="small" />}
               onClick={(e) => setFilterMenuAnchor(e.currentTarget)}
-              sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+              sx={{ textTransform: 'none', whiteSpace: 'nowrap', width: { xs: '100%', sm: 'auto' } }}
             >
               {dateFilter === 'ALL'
                 ? 'Date: All Time'
@@ -512,7 +530,7 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
           </Box>
 
           {/* Right: Export CSV & Add Button */}
-          <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end' }}>
+          <Box sx={{ display: 'flex', gap: 1.5, justifyContent: { xs: 'stretch', sm: 'flex-end' }, '& > button': { flex: { xs: 1, sm: 'none' } } }}>
             <Button
               variant="outlined"
               color="inherit"
@@ -538,8 +556,8 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
       )}
 
       {/* Material Table */}
-      <TableContainer>
-        <Table sx={{ minWidth: 720 }} size="small">
+      <TableContainer sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <Table sx={{ minWidth: 700 }} size="small">
           <TableHead>
             <TableRow>
               {/* Checkbox Column */}
@@ -611,7 +629,7 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
               </TableCell>
 
               {/* Actions */}
-              <TableCell align="right">Actions</TableCell>
+              <TableCell align="right" sx={{ width: 96, minWidth: 96, whiteSpace: 'nowrap' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
 
@@ -630,6 +648,11 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
                 const isReturn = t.type === 'PRINCIPAL_RETURN';
                 const isProfit = t.type === 'PROFIT_PAYOUT';
                 const isReinvest = t.type === 'REINVEST';
+                const linkedProfit = transactionsWithBalance.find(
+                  (tx) => tx.type === 'PROFIT_PAYOUT' && tx.relatedTxId === t.id
+                );
+                const isProfitResolved = Boolean(t.profitResolved || linkedProfit);
+                const actualProfitReceived = linkedProfit ? linkedProfit.amount : (t.expectedProfit || 0);
 
                 return (
                   <TableRow
@@ -710,20 +733,72 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
                         {formatCurrency(t.amount, currency)}
                       </Typography>
                       {t.type === 'INVESTMENT_OUT' && t.expectedProfit !== undefined && t.expectedProfit > 0 && (
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            display: 'block',
-                            color: 'success.main',
-                            fontWeight: 600,
-                            fontSize: '0.6875rem',
-                            lineHeight: 1.2,
-                            mt: 0.3,
-                          }}
-                        >
-                          Target: +{formatCurrency(t.expectedProfit, currency)}
-                          {t.expectedProfitRate ? ` (${t.expectedProfitRate}%)` : ''}
-                        </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.5 }}>
+                          {isProfitResolved ? (
+                            <Box
+                              onClick={(e) => e.stopPropagation()}
+                              sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                px: 1,
+                                py: 0.25,
+                                borderRadius: 1.5,
+                                bgcolor: (theme) =>
+                                  theme.palette.mode === 'dark'
+                                    ? 'rgba(46, 125, 50, 0.2)'
+                                    : 'rgba(46, 125, 50, 0.08)',
+                                color: (theme) =>
+                                  theme.palette.mode === 'dark' ? '#81c784' : '#2e7d32',
+                                border: '1px solid',
+                                borderColor: (theme) =>
+                                  theme.palette.mode === 'dark'
+                                    ? 'rgba(129, 199, 132, 0.3)'
+                                    : 'rgba(46, 125, 50, 0.25)',
+                                cursor: 'default !important',
+                                userSelect: 'none',
+                              }}
+                            >
+                              <CheckCircle style={{ fontSize: 13, color: 'inherit' }} />
+                              <Typography
+                                component="span"
+                                sx={{
+                                  fontSize: '0.6875rem',
+                                  fontWeight: 700,
+                                  color: 'inherit',
+                                  lineHeight: 1.4,
+                                  cursor: 'default',
+                                }}
+                              >
+                                Profit Received: +{formatCurrency(actualProfitReceived, currency)}
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <Tooltip title={`Record received profit of +${formatCurrency(t.expectedProfit, currency)} into ledger`}>
+                              <Chip
+                                size="small"
+                                icon={<TrendingUp style={{ fontSize: 13 }} />}
+                                label={`Receive +${formatCurrency(t.expectedProfit, currency)}${t.expectedProfitRate ? ` (${t.expectedProfitRate}%)` : ''}`}
+                                color="success"
+                                variant="outlined"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onCollectProfit) onCollectProfit(t);
+                                }}
+                                sx={{
+                                  height: 22,
+                                  fontSize: '0.6875rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  borderColor: 'success.main',
+                                  '&:hover': {
+                                    bgcolor: (theme) => alpha(theme.palette.success.main, 0.14),
+                                  },
+                                }}
+                              />
+                            </Tooltip>
+                          )}
+                        </Box>
                       )}
                     </TableCell>
 
@@ -733,7 +808,26 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
                     </TableCell>
 
                     {/* Actions */}
-                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                    <TableCell align="right" sx={{ whiteSpace: 'nowrap', width: 96, minWidth: 96 }} onClick={(e) => e.stopPropagation()}>
+                      {t.type === 'INVESTMENT_OUT' && t.expectedProfit !== undefined && t.expectedProfit > 0 && !isProfitResolved && onCollectProfit && (
+                        <Tooltip title={`Receive Profit (+${formatCurrency(t.expectedProfit, currency)})`}>
+                          <IconButton
+                            size="small"
+                            color="success"
+                            onClick={() => onCollectProfit(t)}
+                            sx={{
+                              bgcolor: (theme) => alpha(theme.palette.success.main, 0.12),
+                              color: 'success.main',
+                              '&:hover': {
+                                bgcolor: (theme) => alpha(theme.palette.success.main, 0.22),
+                              },
+                              mr: 0.5,
+                            }}
+                          >
+                            <TrendingUp fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                       <Tooltip title="Edit">
                         <IconButton size="small" onClick={() => onEditTransaction(t)}>
                           <Edit fontSize="small" />
@@ -785,9 +879,9 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
           <Typography variant="caption" color="text.secondary">
             Profit: <strong style={{ color: theme.palette.success.main }}>{formatCurrency(viewTotals.profit, currency)}</strong>
           </Typography>
-          {viewTotals.expectedProfit > 0 && (
+          {viewTotals.pendingExpectedProfit > 0 && (
             <Typography variant="caption" color="text.secondary">
-              Expected Profit: <strong style={{ color: theme.palette.success.main }}>+{formatCurrency(viewTotals.expectedProfit, currency)}</strong>
+              Pending Profit: <strong style={{ color: theme.palette.info.main }}>+{formatCurrency(viewTotals.pendingExpectedProfit, currency)}</strong>
             </Typography>
           )}
         </Box>

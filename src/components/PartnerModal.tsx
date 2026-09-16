@@ -16,6 +16,7 @@ import {
   Box,
   Divider,
   Paper,
+  Grid,
 } from '@mui/material';
 import {
   Close,
@@ -96,17 +97,32 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ m: 0, p: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: {
+            m: { xs: 1, sm: 2 },
+            width: { xs: 'calc(100% - 16px)', sm: 'auto' },
+            maxHeight: { xs: 'calc(100% - 16px)', sm: 'calc(100% - 64px)' },
+            borderRadius: { xs: 2.5, sm: 3 },
+          },
+        },
+      }}
+    >
+      <DialogTitle sx={{ m: 0, p: { xs: 2, sm: 2.5 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>
             <Business fontSize="small" />
           </Avatar>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
               Business Partners
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
               Manage borrowers and partner contacts
             </Typography>
           </Box>
@@ -116,7 +132,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({
         </IconButton>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ p: 2.5 }}>
+      <DialogContent dividers sx={{ p: { xs: 2, sm: 2.5 } }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           
           {/* Add / Edit Form */}
@@ -143,23 +159,27 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({
                   placeholder="e.g. John Doe (Tech Logistics)"
                 />
 
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <TextField
-                    label="Phone / WhatsApp"
-                    fullWidth
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+1 555-0199"
-                  />
-                  <TextField
-                    label="Email Address"
-                    type="email"
-                    fullWidth
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="partner@business.com"
-                  />
-                </Box>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      label="Phone / WhatsApp"
+                      fullWidth
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+1 555-0199"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      label="Email Address"
+                      type="email"
+                      fullWidth
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="partner@business.com"
+                    />
+                  </Grid>
+                </Grid>
 
                 <TextField
                   label="Agreement Notes / Terms"
@@ -185,9 +205,11 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({
                         bgcolor: c,
                         cursor: 'pointer',
                         transform: avatarColor === c ? 'scale(1.2)' : 'scale(1)',
-                        border: avatarColor === c ? '2px solid white' : 'none',
-                        boxShadow: avatarColor === c ? '0 0 0 1px rgba(0,0,0,0.3)' : 'none',
-                        transition: 'transform 0.15s',
+                        border: (theme) =>
+                          avatarColor === c ? `2px solid ${theme.palette.text.primary}` : '2px solid transparent',
+                        boxShadow: (theme) =>
+                          avatarColor === c ? `0 0 0 2px ${theme.palette.background.paper}` : 'none',
+                        transition: 'all 0.15s ease',
                       }}
                     />
                   ))}
@@ -199,6 +221,7 @@ export const PartnerModal: React.FC<PartnerModalProps> = ({
                     variant="contained"
                     color="primary"
                     startIcon={<PersonAdd />}
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
                   >
                     {editingId ? 'Update Partner' : 'Save Partner'}
                   </Button>

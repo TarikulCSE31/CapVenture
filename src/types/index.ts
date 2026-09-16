@@ -26,6 +26,8 @@ export interface Transaction {
   expectedProfit?: number; // Expected profit in currency
   expectedProfitRate?: number; // Expected return rate in %
   targetDate?: string; // Target payout or maturity date
+  profitResolved?: boolean; // True when expected profit has been received
+  relatedTxId?: string; // Link to parent investment or related transaction
   createdAt: string;
 }
 
@@ -41,6 +43,7 @@ export interface FinancialSummary {
   activeCapital: number; // Principal currently with partner
   totalProfitRealized: number;
   totalExpectedProfit: number; // Expected total profit from capital advances
+  pendingExpectedProfit: number; // Unresolved expected profit
   netCashFlow: number; // (Returned + Profit) - Invested
   roiPercentage: number; // (Total Profit / Total Invested) * 100
   recoveryPercentage: number; // (Returned + Profit) / Invested * 100
@@ -65,8 +68,8 @@ export interface CurrencyConfig {
 }
 
 export const DEFAULT_CURRENCIES: CurrencyConfig[] = [
-  { code: 'USD', symbol: '$', label: 'US Dollar ($)' },
   { code: 'BDT', symbol: '৳', label: 'Bangladeshi Taka (৳)' },
+  { code: 'USD', symbol: '$', label: 'US Dollar ($)' },
   { code: 'EUR', symbol: '€', label: 'Euro (€)' },
   { code: 'GBP', symbol: '£', label: 'British Pound (£)' },
   { code: 'INR', symbol: '₹', label: 'Indian Rupee (₹)' },
@@ -94,6 +97,8 @@ export const DEFAULT_APPWRITE_CONFIG: AppwriteConfig = {
   transactionsCollectionId: 'transactions',
 };
 
+export type UserRole = 'INVESTOR' | 'BUSINESS_OPERATOR';
+
 export interface AppSettings {
   currency: CurrencyConfig;
   appwrite: AppwriteConfig;
@@ -101,11 +106,69 @@ export interface AppSettings {
   supabaseAnonKey?: string;
   useSupabase: boolean;
   theme: 'dark' | 'light';
+  activeRole?: UserRole;
 }
 
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  role?: UserRole;
+}
+
+// -------------------------------------------------------------
+// BUSINESS OPERATOR DATA MODELS (Customers, Sales, Dues, Payments)
+// -------------------------------------------------------------
+
+export interface BusinessCustomer {
+  id: string;
+  userId: string;
+  name: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  avatarColor?: string;
+  createdAt: string;
+}
+
+export type BusinessTransactionType = 
+  | 'SALE'              // Direct cash sale (fully paid)
+  | 'CREDIT_SALE'       // Sale with due balance (partial or zero payment)
+  | 'PAYMENT_RECEIVED'  // Due collection payment from customer
+  | 'EXPENSE';          // Business operating expense
+
+export interface BusinessTransaction {
+  id: string;
+  userId: string;
+  customerId?: string;
+  customerName?: string;
+  date: string;
+  type: BusinessTransactionType;
+  totalAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+  paymentMethod: 'Cash' | 'Bank Transfer' | 'bKash/Nagad' | 'Check' | 'Other';
+  description: string;
+  reference?: string; // Invoice # or receipt #
+  createdAt: string;
+}
+
+export interface CustomerWithBalance extends BusinessCustomer {
+  totalSales: number;
+  totalPaid: number;
+  totalDue: number;
+  transactionCount: number;
+  lastTransactionDate?: string;
+}
+
+export interface BusinessSummary {
+  totalSales: number;
+  totalCashCollected: number;
+  totalCustomerDue: number;
+  totalExpenses: number;
+  netOperatingProfit: number;
+  transactionCount: number;
+  customerCount: number;
 }
 

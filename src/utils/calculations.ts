@@ -14,6 +14,7 @@ export function calculateSummary(transactions: Transaction[]): FinancialSummary 
   let totalPrincipalReturned = 0;
   let totalProfitRealized = 0;
   let totalExpectedProfit = 0;
+  let pendingExpectedProfit = 0;
 
   for (const t of transactions) {
     const amt = Number(t.amount) || 0;
@@ -21,7 +22,14 @@ export function calculateSummary(transactions: Transaction[]): FinancialSummary 
       case 'INVESTMENT_OUT':
         totalInvested += amt;
         if (t.expectedProfit) {
-          totalExpectedProfit += Number(t.expectedProfit) || 0;
+          const exp = Number(t.expectedProfit) || 0;
+          const isResolved = Boolean(
+            t.profitResolved ||
+            transactions.some((tx) => tx.type === 'PROFIT_PAYOUT' && tx.relatedTxId === t.id)
+          );
+          if (!isResolved) {
+            pendingExpectedProfit += exp;
+          }
         }
         break;
       case 'PRINCIPAL_RETURN':
@@ -49,6 +57,7 @@ export function calculateSummary(transactions: Transaction[]): FinancialSummary 
     activeCapital,
     totalProfitRealized,
     totalExpectedProfit,
+    pendingExpectedProfit,
     netCashFlow,
     roiPercentage,
     recoveryPercentage,

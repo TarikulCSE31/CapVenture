@@ -180,13 +180,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ m: 0, p: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: {
+            m: { xs: 1, sm: 2 },
+            width: { xs: 'calc(100% - 16px)', sm: 'auto' },
+            maxHeight: { xs: 'calc(100% - 16px)', sm: 'calc(100% - 64px)' },
+            borderRadius: { xs: 2.5, sm: 3 },
+          },
+        },
+      }}
+    >
+      <DialogTitle sx={{ m: 0, p: { xs: 2, sm: 2.5 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
             Settings & Cloud Sync
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
             Manage Appwrite sync, data backups, and free hosting
           </Typography>
         </Box>
@@ -195,17 +210,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </IconButton>
       </DialogTitle>
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2.5 }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', px: { xs: 1.5, sm: 2.5 } }}>
         <Tabs
           value={tabIndex}
           onChange={(_, v) => setTabIndex(v)}
-          variant="standard"
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           sx={{
             '& .MuiTab-root': {
               textTransform: 'none',
               fontWeight: 600,
-              fontSize: '0.85rem',
+              fontSize: { xs: '0.78rem', sm: '0.85rem' },
               minHeight: 44,
+              px: { xs: 1.5, sm: 2 },
             },
           }}
         >
@@ -215,7 +233,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </Tabs>
       </Box>
 
-      <DialogContent sx={{ p: 2.5 }}>
+      <DialogContent sx={{ p: { xs: 2, sm: 2.5 } }}>
         {/* TAB 0: Appwrite Cloud */}
         {tabIndex === 0 && (
           <form onSubmit={handleSaveAppwrite}>

@@ -1,5 +1,5 @@
 import { Client, Databases, Account, ID, Query } from 'appwrite';
-import { AppwriteConfig, AuthUser, Partner, Transaction } from '../types';
+import { AppwriteConfig, AuthUser, Partner, Transaction, UserRole } from '../types';
 
 let cachedClient: Client | null = null;
 let cachedEndpoint = '';
@@ -37,10 +37,20 @@ export async function getCurrentAppwriteUser(config: AppwriteConfig): Promise<Au
   try {
     const account = getAccount(config);
     const user = await account.get();
+    let userRole: UserRole = 'INVESTOR';
+    try {
+      const prefs = await account.getPrefs();
+      if ((prefs as any)?.role) {
+        userRole = (prefs as any).role;
+      }
+    } catch {
+      // ignore
+    }
     return {
       id: user.$id,
       name: user.name || user.email.split('@')[0],
       email: user.email,
+      role: userRole,
     };
   } catch {
     return null;
@@ -82,17 +92,25 @@ export async function signupWithAppwrite(
   config: AppwriteConfig,
   name: string,
   email: string,
-  password: string
+  password: string,
+  role?: UserRole
 ): Promise<AuthUser> {
   const account = getAccount(config);
   try {
     await account.create(ID.unique(), email, password, name);
     await account.createEmailPasswordSession(email, password);
+    const assignedRole = role || 'INVESTOR';
+    try {
+      await account.updatePrefs({ role: assignedRole, currencyCode: 'BDT', theme: 'dark' });
+    } catch {
+      // ignore
+    }
     const user = await account.get();
     return {
       id: user.$id,
       name: user.name || name,
       email: user.email,
+      role: assignedRole,
     };
   } catch (err: any) {
     console.error('Appwrite signup error:', err);
@@ -109,6 +127,40 @@ export async function logoutAppwrite(config: AppwriteConfig): Promise<void> {
     await account.deleteSession('current');
   } catch (err) {
     console.warn('Logout warning:', err);
+  }
+}
+
+/**
+ * Retrieve user account preferences (theme, currencyCode, role, etc.) from Appwrite
+ */
+export async function fetchUserPreferences(
+  config: AppwriteConfig
+): Promise<{ theme?: 'dark' | 'light'; currencyCode?: string; role?: UserRole } | null> {
+  if (!config.endpoint || !config.projectId) return null;
+  try {
+    const account = getAccount(config);
+    const prefs = await account.getPrefs();
+    return prefs as { theme?: 'dark' | 'light'; currencyCode?: string; role?: UserRole };
+  } catch (err) {
+    console.warn('Could not fetch user preferences from Appwrite:', err);
+    return null;
+  }
+}
+
+/**
+ * Save user account preferences (theme, currencyCode, role, etc.) to Appwrite
+ */
+export async function saveUserPreferences(
+  config: AppwriteConfig,
+  prefs: { theme?: 'dark' | 'light'; currencyCode?: string; role?: UserRole }
+): Promise<void> {
+  if (!config.endpoint || !config.projectId) return;
+  try {
+    const account = getAccount(config);
+    const current = await account.getPrefs();
+    await account.updatePrefs({ ...current, ...prefs });
+  } catch (err) {
+    console.warn('Could not save user preferences to Appwrite:', err);
   }
 }
 
@@ -239,6 +291,8 @@ export async function fetchTransactionsFromAppwrite(config: AppwriteConfig): Pro
     expectedProfit: doc.expectedProfit !== undefined && doc.expectedProfit !== null ? Number(doc.expectedProfit) : undefined,
     expectedProfitRate: doc.expectedProfitRate !== undefined && doc.expectedProfitRate !== null ? Number(doc.expectedProfitRate) : undefined,
     targetDate: doc.targetDate || undefined,
+    profitResolved: Boolean(doc.profitResolved),
+    relatedTxId: doc.relatedTxId || undefined,
     createdAt: doc.$createdAt || new Date().toISOString(),
   }));
 }
@@ -259,6 +313,8 @@ export async function saveTransactionToAppwrite(config: AppwriteConfig, transact
     expectedProfit: transaction.expectedProfit ? Number(transaction.expectedProfit) : null,
     expectedProfitRate: transaction.expectedProfitRate ? Number(transaction.expectedProfitRate) : null,
     targetDate: transaction.targetDate || null,
+    profitResolved: Boolean(transaction.profitResolved),
+    relatedTxId: transaction.relatedTxId || null,
   };
 
   try {

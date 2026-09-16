@@ -134,6 +134,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         expectedProfit: type === 'INVESTMENT_OUT' && expectedProfit ? parseFloat(expectedProfit) : undefined,
         expectedProfitRate: type === 'INVESTMENT_OUT' && expectedProfitRate ? parseFloat(expectedProfitRate) : undefined,
         targetDate: type === 'INVESTMENT_OUT' && targetDate ? targetDate : undefined,
+        relatedTxId: editingTransaction?.relatedTxId,
       },
       editingTransaction?.id
     );
@@ -155,15 +156,38 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: {
+            m: { xs: 1, sm: 2 },
+            width: { xs: 'calc(100% - 16px)', sm: 'auto' },
+            maxHeight: { xs: 'calc(100% - 16px)', sm: 'calc(100% - 64px)' },
+            borderRadius: { xs: 2.5, sm: 3 },
+          },
+        },
+      }}
+    >
       <form onSubmit={handleSubmit}>
-        <DialogTitle sx={{ m: 0, p: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <DialogTitle sx={{ m: 0, p: { xs: 2, sm: 2.5 }, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {editingTransaction ? 'Edit Transaction' : 'Record Transaction'}
+            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
+              {editingTransaction?.id
+                ? 'Edit Transaction'
+                : editingTransaction?.type === 'PROFIT_PAYOUT' && editingTransaction.amount > 0
+                ? 'Receive Profit Payout'
+                : 'Record Transaction'}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Update capital investment, returns, or profit payouts
+            <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
+              {editingTransaction?.id
+                ? 'Update capital investment, returns, or profit payouts'
+                : editingTransaction?.type === 'PROFIT_PAYOUT' && editingTransaction.amount > 0
+                ? 'Confirm profit received against capital investment'
+                : 'Record capital investment, returns, or profit payouts'}
             </Typography>
           </Box>
           <IconButton onClick={onClose} size="small">
@@ -171,7 +195,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           </IconButton>
         </DialogTitle>
 
-        <DialogContent dividers sx={{ p: 2.5 }}>
+        <DialogContent dividers sx={{ p: { xs: 2, sm: 2.5 } }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             
             {/* Type Selector */}
@@ -186,11 +210,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 fullWidth
                 size="small"
                 sx={{
+                  display: { xs: 'grid', sm: 'flex' },
+                  gridTemplateColumns: { xs: '1fr 1fr', sm: 'none' },
                   '& .MuiToggleButton-root': {
                     py: 1,
                     textTransform: 'none',
                     fontWeight: 600,
-                    fontSize: '0.8rem',
+                    fontSize: { xs: '0.75rem', sm: '0.8rem' },
                   },
                 }}
               >
@@ -212,8 +238,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               <Alert 
                 severity={
                   type === 'PROFIT_PAYOUT' ? 'success' : 
-                  type === 'PRINCIPAL_RETURN' ? 'warning' : 
-                  type === 'REINVEST' ? 'secondary' as any : 'info'
+                  type === 'PRINCIPAL_RETURN' ? 'warning' : 'info'
                 }
                 sx={{ mt: 1.5, py: 0.2, '& .MuiAlert-message': { fontSize: '0.78rem' } }}
               >
@@ -240,7 +265,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   htmlInput: { min: '0', step: 'any' },
                 }}
               />
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                 <Typography variant="caption" color="text.secondary">Quick add:</Typography>
                 {[500, 1000, 2500, 5000].map((val) => (
                   <Chip
@@ -264,9 +289,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   p: 2,
                   borderRadius: 2.5,
                   bgcolor: (theme) =>
-                    theme.palette.mode === 'dark' ? 'rgba(46, 125, 50, 0.08)' : 'rgba(46, 125, 50, 0.04)',
+                    theme.palette.mode === 'dark' ? 'rgba(74, 222, 128, 0.08)' : 'rgba(22, 163, 74, 0.05)',
                   borderColor: (theme) =>
-                    theme.palette.mode === 'dark' ? 'rgba(46, 125, 50, 0.3)' : 'rgba(46, 125, 50, 0.25)',
+                    theme.palette.mode === 'dark' ? 'rgba(74, 222, 128, 0.25)' : 'rgba(22, 163, 74, 0.2)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 1.5,
@@ -328,6 +353,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       onChange={(e) => setTargetDate(e.target.value)}
                       slotProps={{
                         inputLabel: { shrink: true },
+                        htmlInput: {
+                          style: { colorScheme: 'inherit' },
+                        },
                       }}
                     />
                   </Grid>
@@ -369,6 +397,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   fullWidth
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
+                  slotProps={{
+                    htmlInput: {
+                      style: { colorScheme: 'inherit' },
+                    },
+                  }}
                 />
               </Grid>
             </Grid>
@@ -414,7 +447,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           </Box>
         </DialogContent>
 
-        <DialogActions sx={{ p: 2 }}>
+        <DialogActions sx={{ p: { xs: 1.5, sm: 2 }, flexDirection: { xs: 'column-reverse', sm: 'row' }, gap: { xs: 1, sm: 0 }, '& > button': { width: { xs: '100%', sm: 'auto' } } }}>
           <Button onClick={onClose} color="inherit">
             Cancel
           </Button>

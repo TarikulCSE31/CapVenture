@@ -33,18 +33,24 @@ import {
   CloudOff,
   Login,
   Logout,
+  Storefront,
+  SwapHoriz,
+  ShoppingCart,
 } from '@mui/icons-material';
-import { AuthUser, CurrencyConfig, DEFAULT_CURRENCIES, Partner } from '../types';
+import { AuthUser, CurrencyConfig, DEFAULT_CURRENCIES, Partner, UserRole } from '../types';
 
 interface NavbarProps {
-  activeTab: 'dashboard' | 'ledger' | 'statement';
-  setActiveTab: (tab: 'dashboard' | 'ledger' | 'statement') => void;
+  activeRole: UserRole;
+  onSwitchRole: (newRole: UserRole) => void;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
   partners: Partner[];
   selectedPartnerId: string;
   onSelectPartner: (id: string) => void;
   currentCurrency: CurrencyConfig;
   onSelectCurrency: (currency: CurrencyConfig) => void;
   onOpenTransactionModal: () => void;
+  onOpenBusinessTxModal?: () => void;
   onOpenPartnerModal: () => void;
   onOpenSettingsModal: () => void;
   isAppwriteEnabled?: boolean;
@@ -55,6 +61,8 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
+  activeRole,
+  onSwitchRole,
   activeTab,
   setActiveTab,
   partners,
@@ -63,6 +71,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentCurrency,
   onSelectCurrency,
   onOpenTransactionModal,
+  onOpenBusinessTxModal,
   onOpenPartnerModal,
   onOpenSettingsModal,
   isAppwriteEnabled = false,
@@ -82,6 +91,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     setAnchorElUser(null);
   };
 
+  const isInvestor = activeRole === 'INVESTOR';
+
   return (
     <AppBar
       position="sticky"
@@ -90,55 +101,76 @@ export const Navbar: React.FC<NavbarProps> = ({
       sx={{
         borderBottom: `1px solid ${theme.palette.divider}`,
         backgroundColor: theme.palette.background.paper,
+        color: theme.palette.text.primary,
       }}
       className="no-print"
     >
-      <Toolbar sx={{ minHeight: 64, px: { xs: 2, md: 3 }, display: 'flex', justifyContent: 'space-between' }}>
+      <Toolbar sx={{ minHeight: { xs: 56, sm: 64 }, px: { xs: 1, sm: 2, md: 3 }, display: 'flex', justifyContent: 'space-between', gap: 1 }}>
         
-        {/* Brand & Cloud Badge */}
-        <Box sx={{ display: 'flex', items: 'center', gap: 1.5, alignItems: 'center' }}>
+        {/* Brand & Portal Switcher Chip */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 }, minWidth: 0 }}>
           <Box
+            component="img"
+            src="/logo.svg"
+            alt="CapVenture"
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 38,
-              height: 38,
-              borderRadius: 2,
-              backgroundColor: theme.palette.primary.main,
-              color: '#ffffff',
+              width: { xs: 32, sm: 38 },
+              height: { xs: 32, sm: 38 },
+              borderRadius: 1.5,
+              flexShrink: 0,
             }}
-          >
-            <TrendingUp fontSize="small" />
-          </Box>
-          <Box>
+          />
+          <Box sx={{ minWidth: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 700, lineHeight: 1.2 }}>
+              <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 800, lineHeight: 1.2, color: theme.palette.text.primary, display: { xs: 'none', sm: 'block' } }}>
                 CapVenture
               </Typography>
+
+              {/* Portal Mode Chip */}
+              <Tooltip title="Click to switch portal role">
+                <Chip
+                  icon={isInvestor ? <TrendingUp style={{ fontSize: 13 }} /> : <Storefront style={{ fontSize: 13 }} />}
+                  label={isInvestor ? 'Investor' : 'Business'}
+                  size="small"
+                  color={isInvestor ? 'primary' : 'success'}
+                  onClick={() => onSwitchRole(isInvestor ? 'BUSINESS_OPERATOR' : 'INVESTOR')}
+                  deleteIcon={<SwapHoriz style={{ fontSize: 13 }} />}
+                  onDelete={() => onSwitchRole(isInvestor ? 'BUSINESS_OPERATOR' : 'INVESTOR')}
+                  sx={{
+                    height: { xs: 24, sm: 22 },
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    '& .MuiChip-deleteIcon': {
+                      display: { xs: 'none', sm: 'inline-flex' },
+                    },
+                  }}
+                />
+              </Tooltip>
+
               {isAppwriteEnabled ? (
                 <Chip
-                  icon={<CloudDone style={{ fontSize: 14 }} />}
+                  icon={<CloudDone style={{ fontSize: 13 }} />}
                   label="Appwrite"
                   size="small"
                   color="secondary"
                   variant="outlined"
                   onClick={onOpenSettingsModal}
-                  sx={{ height: 22, fontSize: '0.7rem', cursor: 'pointer' }}
+                  sx={{ height: 22, fontSize: '0.68rem', cursor: 'pointer', display: { xs: 'none', sm: 'inline-flex' } }}
                 />
               ) : (
                 <Chip
-                  icon={<CloudOff style={{ fontSize: 14 }} />}
+                  icon={<CloudOff style={{ fontSize: 13 }} />}
                   label="Local"
                   size="small"
                   variant="outlined"
                   onClick={onOpenSettingsModal}
-                  sx={{ height: 22, fontSize: '0.7rem', cursor: 'pointer' }}
+                  sx={{ height: 22, fontSize: '0.68rem', cursor: 'pointer', display: { xs: 'none', sm: 'inline-flex' } }}
                 />
               )}
             </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
-              Investment & Profit Ledger
+            <Typography variant="caption" sx={{ color: theme.palette.text.secondary, display: { xs: 'none', sm: 'block' } }}>
+              {isInvestor ? 'Investment & Profit Ledger' : 'Business Operations & Due Ledger'}
             </Typography>
           </Box>
         </Box>
@@ -148,8 +180,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           <Tabs
             value={activeTab}
             onChange={(_, val) => setActiveTab(val)}
-            indicatorColor="primary"
-            textColor="primary"
+            indicatorColor={isInvestor ? 'primary' : 'secondary'}
+            textColor={isInvestor ? 'primary' : 'secondary'}
             sx={{
               minHeight: 48,
               '& .MuiTab-root': {
@@ -160,30 +192,38 @@ export const Navbar: React.FC<NavbarProps> = ({
               },
             }}
           >
-            <Tab icon={<AssessmentOutlined fontSize="small" />} iconPosition="start" label="Dashboard" value="dashboard" />
-            <Tab icon={<TableChartOutlined fontSize="small" />} iconPosition="start" label="Transactions Ledger" value="ledger" />
-            <Tab icon={<ReceiptLongOutlined fontSize="small" />} iconPosition="start" label="Statement of Account" value="statement" />
+            {isInvestor ? [
+              <Tab key="dashboard" icon={<AssessmentOutlined fontSize="small" />} iconPosition="start" label="Dashboard" value="dashboard" />,
+              <Tab key="ledger" icon={<TableChartOutlined fontSize="small" />} iconPosition="start" label="Transactions Ledger" value="ledger" />,
+              <Tab key="statement" icon={<ReceiptLongOutlined fontSize="small" />} iconPosition="start" label="Statement of Account" value="statement" />,
+            ] : [
+              <Tab key="business_dashboard" icon={<AssessmentOutlined fontSize="small" />} iconPosition="start" label="Business Overview" value="business_dashboard" />,
+              <Tab key="business_ledger" icon={<TableChartOutlined fontSize="small" />} iconPosition="start" label="Sales & Dues" value="business_ledger" />,
+              <Tab key="business_customers" icon={<PeopleOutlined fontSize="small" />} iconPosition="start" label="Customers" value="business_customers" />,
+            ]}
           </Tabs>
         </Box>
 
         {/* Right Controls */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1.2 }, flexShrink: 0 }}>
           
-          {/* Partner Dropdown */}
-          <FormControl size="small" sx={{ minWidth: 140, display: { xs: 'none', sm: 'block' } }}>
-            <Select
-              value={selectedPartnerId}
-              onChange={(e) => onSelectPartner(e.target.value)}
-              sx={{ fontSize: '0.8125rem' }}
-            >
-              <MenuItem value="ALL">All Partners ({partners.length})</MenuItem>
-              {partners.map((p) => (
-                <MenuItem key={p.id} value={p.id}>
-                  {p.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          {/* Partner Dropdown (Investor Mode only) */}
+          {isInvestor && (
+            <FormControl size="small" sx={{ minWidth: 140, display: { xs: 'none', sm: 'block' } }}>
+              <Select
+                value={selectedPartnerId}
+                onChange={(e) => onSelectPartner(e.target.value)}
+                sx={{ fontSize: '0.8125rem' }}
+              >
+                <MenuItem value="ALL">All Partners ({partners.length})</MenuItem>
+                {partners.map((p) => (
+                  <MenuItem key={p.id} value={p.id}>
+                    {p.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           {/* Currency Dropdown */}
           <FormControl size="small" sx={{ width: 95, display: { xs: 'none', lg: 'block' } }}>
@@ -205,21 +245,23 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Theme Toggle Button */}
           <Tooltip title={theme.palette.mode === 'dark' ? 'Light Mode' : 'Dark Mode'}>
-            <IconButton onClick={onToggleTheme} size="small" color="inherit">
+            <IconButton onClick={onToggleTheme} size="small" sx={{ color: theme.palette.text.secondary, '&:hover': { color: theme.palette.text.primary } }}>
               {theme.palette.mode === 'dark' ? <Brightness7 fontSize="small" /> : <Brightness4 fontSize="small" />}
             </IconButton>
           </Tooltip>
 
-          {/* Partners Button */}
-          <Tooltip title="Manage Partners">
-            <IconButton onClick={onOpenPartnerModal} size="small" color="inherit">
-              <PeopleOutlined fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          {/* Partners Button (Investor Mode) */}
+          {isInvestor && (
+            <Tooltip title="Manage Partners">
+              <IconButton onClick={onOpenPartnerModal} size="small" sx={{ color: theme.palette.text.secondary, '&:hover': { color: theme.palette.text.primary }, display: { xs: 'none', sm: 'inline-flex' } }}>
+                <PeopleOutlined fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
 
           {/* Settings Button */}
           <Tooltip title="Settings & Sync">
-            <IconButton onClick={onOpenSettingsModal} size="small" color="inherit">
+            <IconButton onClick={onOpenSettingsModal} size="small" sx={{ color: theme.palette.text.secondary, '&:hover': { color: theme.palette.text.primary } }}>
               <SettingsOutlined fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -235,7 +277,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       height: 32,
                       fontSize: '0.8125rem',
                       fontWeight: 700,
-                      bgcolor: 'primary.main',
+                      bgcolor: isInvestor ? 'primary.main' : '#059669',
                     }}
                   >
                     {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
@@ -248,7 +290,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClose={handleCloseUserMenu}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                slotProps={{ paper: { elevation: 4, sx: { mt: 1, minWidth: 220, borderRadius: 2, p: 1 } } }}
+                slotProps={{ paper: { elevation: 4, sx: { mt: 1, minWidth: 230, borderRadius: 2, p: 1 } } }}
               >
                 <Box sx={{ px: 1.5, py: 1 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -257,15 +299,34 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all', display: 'block' }}>
                     {currentUser.email}
                   </Typography>
-                  <Chip
-                    size="small"
-                    label="Appwrite Cloud"
-                    color="success"
-                    variant="outlined"
-                    sx={{ mt: 0.8, height: 20, fontSize: '0.6875rem' }}
-                  />
+                  <Box sx={{ display: 'flex', gap: 0.8, mt: 0.8, alignItems: 'center' }}>
+                    <Chip
+                      size="small"
+                      label={isInvestor ? 'Investor' : 'Business Operator'}
+                      color={isInvestor ? 'primary' : 'success'}
+                      sx={{ height: 20, fontSize: '0.6875rem', fontWeight: 600 }}
+                    />
+                    <Chip
+                      size="small"
+                      label="Cloud"
+                      color="secondary"
+                      variant="outlined"
+                      sx={{ height: 20, fontSize: '0.6875rem' }}
+                    />
+                  </Box>
                 </Box>
                 <Divider sx={{ my: 1 }} />
+                <MenuItem
+                  onClick={() => {
+                    handleCloseUserMenu();
+                    onSwitchRole(isInvestor ? 'BUSINESS_OPERATOR' : 'INVESTOR');
+                  }}
+                >
+                  <ListItemIcon>
+                    <SwapHoriz fontSize="small" color="primary" />
+                  </ListItemIcon>
+                  Switch to {isInvestor ? 'Business Portal' : 'Investor Portal'}
+                </MenuItem>
                 <MenuItem onClick={() => { handleCloseUserMenu(); onOpenSettingsModal(); }}>
                   <ListItemIcon>
                     <SettingsOutlined fontSize="small" />
@@ -289,23 +350,50 @@ export const Navbar: React.FC<NavbarProps> = ({
               startIcon={<Login fontSize="small" />}
               onClick={onOpenAuthModal}
               size="small"
-              sx={{ fontWeight: 600, fontSize: '0.8125rem', textTransform: 'none' }}
+              sx={{ fontWeight: 600, fontSize: '0.8125rem', textTransform: 'none', px: { xs: 1, sm: 1.8 }, minWidth: 0 }}
             >
-              Sign In
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Sign In</Box>
             </Button>
           )}
 
-          {/* Record Entry Button */}
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<Add />}
-            onClick={onOpenTransactionModal}
-            size="small"
-            sx={{ fontWeight: 600, fontSize: '0.8125rem', px: 1.8 }}
-          >
-            Record Entry
-          </Button>
+          {/* Primary Action Button */}
+          {isInvestor ? (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<Add />}
+              onClick={onOpenTransactionModal}
+              size="small"
+              sx={{
+                fontWeight: 600,
+                fontSize: '0.8125rem',
+                px: { xs: 1, sm: 1.8 },
+                minWidth: { xs: 36, sm: 'auto' },
+                height: { xs: 32, sm: 36 },
+                '& .MuiButton-startIcon': { mr: { xs: 0, sm: 0.8 }, ml: { xs: 0, sm: -0.4 } },
+              }}
+            >
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Record Entry</Box>
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<ShoppingCart />}
+              onClick={onOpenBusinessTxModal || onOpenTransactionModal}
+              size="small"
+              sx={{
+                fontWeight: 600,
+                fontSize: '0.8125rem',
+                px: { xs: 1, sm: 1.8 },
+                minWidth: { xs: 36, sm: 'auto' },
+                height: { xs: 32, sm: 36 },
+                '& .MuiButton-startIcon': { mr: { xs: 0, sm: 0.8 }, ml: { xs: 0, sm: -0.4 } },
+              }}
+            >
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Record Sale</Box>
+            </Button>
+          )}
 
         </Box>
 
@@ -317,8 +405,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           value={activeTab}
           onChange={(_, val) => setActiveTab(val)}
           variant="fullWidth"
-          indicatorColor="primary"
-          textColor="primary"
+          indicatorColor={isInvestor ? 'primary' : 'secondary'}
+          textColor={isInvestor ? 'primary' : 'secondary'}
           sx={{
             minHeight: 42,
             width: '100%',
@@ -331,9 +419,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             },
           }}
         >
-          <Tab label="Dashboard" value="dashboard" />
-          <Tab label="Ledger" value="ledger" />
-          <Tab label="Statement" value="statement" />
+          {isInvestor ? [
+            <Tab key="dashboard" label="Dashboard" value="dashboard" />,
+            <Tab key="ledger" label="Ledger" value="ledger" />,
+            <Tab key="statement" label="Statement" value="statement" />,
+          ] : [
+            <Tab key="business_dashboard" label="Overview" value="business_dashboard" />,
+            <Tab key="business_ledger" label="Sales & Dues" value="business_ledger" />,
+            <Tab key="business_customers" label="Customers" value="business_customers" />,
+          ]}
         </Tabs>
       </Box>
     </AppBar>
