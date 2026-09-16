@@ -156,16 +156,29 @@ export const TeamModal: React.FC<TeamModalProps> = ({
         paper: {
           sx: {
             m: { xs: 1, sm: 2 },
-            width: { xs: 'calc(100% - 16px)', sm: 'auto' },
+            width: { xs: 'calc(100% - 16px)', sm: 600 },
             maxHeight: { xs: 'calc(100% - 24px)', sm: '88vh' },
             borderRadius: { xs: 2.5, sm: 3 },
             display: 'flex',
             flexDirection: 'column',
+            overflow: 'hidden',
           },
         },
       }}
     >
-      <DialogTitle sx={{ m: 0, p: { xs: 2, sm: 2.5 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <DialogTitle
+        sx={{
+          m: 0,
+          p: { xs: 2, sm: 2.5 },
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexShrink: 0,
+          borderBottom: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
             <GroupOutlined fontSize="small" />
@@ -205,13 +218,28 @@ export const TeamModal: React.FC<TeamModalProps> = ({
       </DialogTitle>
 
       <DialogContent
-        dividers
         sx={{
           p: { xs: 2, sm: 2.5 },
+          flex: '1 1 auto',
+          minHeight: 0,
+          overflowY: 'auto !important',
           display: 'flex',
           flexDirection: 'column',
           gap: 2.5,
-          overflowY: 'auto',
+          '&::-webkit-scrollbar': {
+            width: '8px',
+          },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'action.hover',
+            borderRadius: '4px',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: 'action.disabled',
+            borderRadius: '4px',
+            '&:hover': {
+              backgroundColor: 'text.secondary',
+            },
+          },
         }}
       >
         {/* Company Identity Header */}
@@ -351,6 +379,7 @@ export const TeamModal: React.FC<TeamModalProps> = ({
               <Alert
                 severity="success"
                 icon={<Check fontSize="inherit" />}
+                onClose={() => setLastCreatedInvite(null)}
                 sx={{ mt: 2, '& .MuiAlert-message': { width: '100%' } }}
               >
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.85rem' }}>
@@ -539,7 +568,15 @@ export const TeamModal: React.FC<TeamModalProps> = ({
         )}
       </DialogContent>
 
-      <DialogActions sx={{ p: 2 }}>
+      <DialogActions
+        sx={{
+          p: { xs: 1.5, sm: 2 },
+          flexShrink: 0,
+          borderTop: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+        }}
+      >
         <Button onClick={onClose} color="inherit">
           Close
         </Button>
