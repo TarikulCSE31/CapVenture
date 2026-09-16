@@ -16,6 +16,10 @@ import {
   Alert,
   Paper,
   Grid,
+  Card,
+  CardActionArea,
+  Chip,
+  Avatar,
 } from '@mui/material';
 import {
   Close,
@@ -27,8 +31,13 @@ import {
   DeleteOutlined,
   Storage,
   Language,
+  Palette,
+  Brightness4,
+  Brightness7,
+  CheckCircle,
+  PaidOutlined,
 } from '@mui/icons-material';
-import { AppSettings, AppwriteConfig } from '../types';
+import { AppSettings, AppwriteConfig, DEFAULT_CURRENCIES } from '../types';
 import {
   exportBackupJson,
   importBackupJson,
@@ -70,7 +79,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [appwriteTestResult, setAppwriteTestResult] = useState<{ success: boolean; error?: string } | null>(null);
   const [isSyncingAppwrite, setIsSyncingAppwrite] = useState(false);
 
-  // Tab State: 0 = Appwrite, 1 = Backup, 2 = Hosting
+  // Tab State: 0 = Appearance & Preferences, 1 = Appwrite Cloud, 2 = Backup & Data, 3 = Free Hosting
   const [tabIndex, setTabIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -202,7 +211,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             Settings & Cloud Sync
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
-            Manage Appwrite sync, data backups, and free hosting
+            Manage preferences, Appwrite cloud sync, backups, and hosting
           </Typography>
         </Box>
         <IconButton onClick={onClose} size="small">
@@ -227,6 +236,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             },
           }}
         >
+          <Tab icon={<Palette fontSize="small" />} iconPosition="start" label="Appearance" />
           <Tab icon={<CloudDone fontSize="small" />} iconPosition="start" label="Appwrite Cloud" />
           <Tab icon={<Storage fontSize="small" />} iconPosition="start" label="Backup & Data" />
           <Tab icon={<Language fontSize="small" />} iconPosition="start" label="Free Hosting" />
@@ -234,8 +244,143 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       </Box>
 
       <DialogContent sx={{ p: { xs: 2, sm: 2.5 } }}>
-        {/* TAB 0: Appwrite Cloud */}
+        {/* TAB 0: Appearance & Preferences */}
         {tabIndex === 0 && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            {/* Theme Selection */}
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                Theme & Display Mode
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                Choose your preferred visual mode. Selected theme is applied instantly and saved.
+              </Typography>
+
+              <Grid container spacing={2}>
+                {/* Light Mode Card */}
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      borderRadius: 2,
+                      borderColor: settings.theme === 'light' ? 'primary.main' : 'divider',
+                      borderWidth: settings.theme === 'light' ? 2 : 1,
+                      bgcolor: settings.theme === 'light' ? 'action.selected' : 'background.paper',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <CardActionArea
+                      onClick={() => onUpdateSettings({ ...settings, theme: 'light' })}
+                      sx={{ p: 2 }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Avatar sx={{ width: 36, height: 36, bgcolor: '#e0f2fe', color: '#0284c7' }}>
+                            <Brightness4 fontSize="small" />
+                          </Avatar>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                            Light Mode
+                          </Typography>
+                        </Box>
+                        {settings.theme === 'light' && (
+                          <Chip
+                            icon={<CheckCircle fontSize="small" />}
+                            label="Active"
+                            color="primary"
+                            size="small"
+                            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700 }}
+                          />
+                        )}
+                      </Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Crisp daytime high-clarity interface with clean cards and soft contrast.
+                      </Typography>
+                    </CardActionArea>
+                  </Card>
+                </Grid>
+
+                {/* Dark Mode Card */}
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      borderRadius: 2,
+                      borderColor: settings.theme === 'dark' ? 'primary.main' : 'divider',
+                      borderWidth: settings.theme === 'dark' ? 2 : 1,
+                      bgcolor: settings.theme === 'dark' ? 'action.selected' : 'background.paper',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <CardActionArea
+                      onClick={() => onUpdateSettings({ ...settings, theme: 'dark' })}
+                      sx={{ p: 2 }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Avatar sx={{ width: 36, height: 36, bgcolor: '#1e293b', color: '#38bdf8' }}>
+                            <Brightness7 fontSize="small" />
+                          </Avatar>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                            Dark Mode
+                          </Typography>
+                        </Box>
+                        {settings.theme === 'dark' && (
+                          <Chip
+                            icon={<CheckCircle fontSize="small" />}
+                            label="Active"
+                            color="primary"
+                            size="small"
+                            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700 }}
+                          />
+                        )}
+                      </Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Deep slate night theme engineered to reduce eye strain in low-light workspaces.
+                      </Typography>
+                    </CardActionArea>
+                  </Card>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* Currency Preference */}
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <PaidOutlined fontSize="small" color="primary" />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Default Currency
+                </Typography>
+              </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                Used for calculating profits, sales, dues, and transaction ledgers across the entire app.
+              </Typography>
+
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {DEFAULT_CURRENCIES.map((curr) => {
+                  const isSelected = settings.currency.code === curr.code;
+                  return (
+                    <Chip
+                      key={curr.code}
+                      label={`${curr.symbol} ${curr.code} - ${curr.label.split('(')[0].trim()}`}
+                      color={isSelected ? 'primary' : 'default'}
+                      variant={isSelected ? 'filled' : 'outlined'}
+                      onClick={() => onUpdateSettings({ ...settings, currency: curr })}
+                      sx={{
+                        fontWeight: isSelected ? 700 : 500,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        borderRadius: 1.5,
+                      }}
+                    />
+                  );
+                })}
+              </Box>
+            </Paper>
+          </Box>
+        )}
+
+        {/* TAB 1: Appwrite Cloud */}
+        {tabIndex === 1 && (
           <form onSubmit={handleSaveAppwrite}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
@@ -354,8 +499,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </form>
         )}
 
-        {/* TAB 1: Backup & Data */}
-        {tabIndex === 1 && (
+        {/* TAB 2: Backup & Data */}
+        {tabIndex === 2 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
@@ -432,8 +577,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </Box>
         )}
 
-        {/* TAB 2: Free Hosting */}
-        {tabIndex === 2 && (
+        {/* TAB 3: Free Hosting */}
+        {tabIndex === 3 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Alert severity="info" sx={{ '& .MuiAlert-message': { fontSize: '0.8125rem' } }}>
               Because CapVenture is a modern Single Page App, you can host it 100% free on Vercel or Cloudflare Pages.

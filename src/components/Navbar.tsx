@@ -17,6 +17,8 @@ import {
   Avatar,
   Menu,
   ListItemIcon,
+  ListItemText,
+  Switch,
   Divider,
 } from '@mui/material';
 import {
@@ -78,6 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const theme = useTheme();
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
+  const [anchorElSettings, setAnchorElSettings] = React.useState<null | HTMLElement>(null);
 
   const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElUser(event.currentTarget);
@@ -85,6 +88,14 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const handleCloseUserMenu = () => {
     setAnchorElUser(null);
+  };
+
+  const handleOpenSettingsMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorElSettings(event.currentTarget);
+  };
+
+  const handleCloseSettingsMenu = () => {
+    setAnchorElSettings(null);
   };
 
   const isInvestor = activeRole === 'INVESTOR';
@@ -208,7 +219,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             <FormControl size="small" sx={{ minWidth: 140, display: { xs: 'none', sm: 'block' } }}>
               <Select
                 value={selectedPartnerId}
-                onChange={(e) => onSelectPartner(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value === '__MANAGE_PARTNERS__') {
+                    onOpenPartnerModal();
+                  } else {
+                    onSelectPartner(e.target.value);
+                  }
+                }}
                 sx={{ fontSize: '0.8125rem' }}
               >
                 <MenuItem value="ALL">All Partners ({partners.length})</MenuItem>
@@ -217,6 +234,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {p.name}
                   </MenuItem>
                 ))}
+                <Divider sx={{ my: 0.5 }} />
+                <MenuItem
+                  value="__MANAGE_PARTNERS__"
+                  sx={{
+                    color: 'primary.main',
+                    fontWeight: 600,
+                    fontSize: '0.8125rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
+                  <PeopleOutlined fontSize="small" /> Manage Partners...
+                </MenuItem>
               </Select>
             </FormControl>
           )}
@@ -239,28 +270,99 @@ export const Navbar: React.FC<NavbarProps> = ({
             </Select>
           </FormControl>
 
-          {/* Theme Toggle Button */}
-          <Tooltip title={theme.palette.mode === 'dark' ? 'Light Mode' : 'Dark Mode'}>
-            <IconButton onClick={onToggleTheme} size="small" sx={{ color: theme.palette.text.secondary, '&:hover': { color: theme.palette.text.primary } }}>
-              {theme.palette.mode === 'dark' ? <Brightness7 fontSize="small" /> : <Brightness4 fontSize="small" />}
-            </IconButton>
-          </Tooltip>
-
-          {/* Partners Button (Investor Mode) */}
-          {isInvestor && (
-            <Tooltip title="Manage Partners">
-              <IconButton onClick={onOpenPartnerModal} size="small" sx={{ color: theme.palette.text.secondary, '&:hover': { color: theme.palette.text.primary }, display: { xs: 'none', sm: 'inline-flex' } }}>
-                <PeopleOutlined fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-
           {/* Settings Button */}
-          <Tooltip title="Settings & Sync">
-            <IconButton onClick={onOpenSettingsModal} size="small" sx={{ color: theme.palette.text.secondary, '&:hover': { color: theme.palette.text.primary } }}>
+          <Tooltip title="Settings & Preferences">
+            <IconButton
+              onClick={handleOpenSettingsMenu}
+              size="small"
+              sx={{
+                color: Boolean(anchorElSettings) ? 'primary.main' : theme.palette.text.secondary,
+                '&:hover': { color: theme.palette.text.primary },
+              }}
+            >
               <SettingsOutlined fontSize="small" />
             </IconButton>
           </Tooltip>
+
+          {/* Settings Menu Dropdown */}
+          <Menu
+            anchorEl={anchorElSettings}
+            open={Boolean(anchorElSettings)}
+            onClose={handleCloseSettingsMenu}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            slotProps={{ paper: { elevation: 4, sx: { mt: 1, minWidth: 240, borderRadius: 2, p: 0.5 } } }}
+          >
+            <Box sx={{ px: 1.5, py: 1 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>
+                Quick Settings
+              </Typography>
+            </Box>
+
+            {/* Theme Toggle Item */}
+            <MenuItem
+              onClick={() => {
+                onToggleTheme();
+              }}
+              sx={{ py: 1, display: 'flex', justifyContent: 'space-between' }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <ListItemIcon sx={{ minWidth: 28, color: theme.palette.mode === 'dark' ? 'warning.light' : 'primary.main' }}>
+                  {theme.palette.mode === 'dark' ? <Brightness7 fontSize="small" /> : <Brightness4 fontSize="small" />}
+                </ListItemIcon>
+                <ListItemText
+                  primary={<Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Theme Mode</Typography>}
+                  secondary={<Typography variant="caption" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{theme.palette.mode === 'dark' ? 'Dark Mode' : 'Light Mode'}</Typography>}
+                />
+              </Box>
+              <Switch
+                size="small"
+                checked={theme.palette.mode === 'dark'}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  onToggleTheme();
+                }}
+              />
+            </MenuItem>
+
+            {/* Manage Partners (Investor Mode) */}
+            {isInvestor && (
+              <MenuItem
+                onClick={() => {
+                  handleCloseSettingsMenu();
+                  onOpenPartnerModal();
+                }}
+                sx={{ py: 1 }}
+              >
+                <ListItemIcon sx={{ minWidth: 28, color: 'primary.main' }}>
+                  <PeopleOutlined fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary={<Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Manage Partners</Typography>}
+                  secondary={<Typography variant="caption" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{`${partners.length} active partner${partners.length === 1 ? '' : 's'}`}</Typography>}
+                />
+              </MenuItem>
+            )}
+
+            <Divider sx={{ my: 0.5 }} />
+
+            {/* System & Cloud Settings */}
+            <MenuItem
+              onClick={() => {
+                handleCloseSettingsMenu();
+                onOpenSettingsModal();
+              }}
+              sx={{ py: 1 }}
+            >
+              <ListItemIcon sx={{ minWidth: 28 }}>
+                <SettingsOutlined fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary={<Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>All Settings & Sync</Typography>}
+                secondary={<Typography variant="caption" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Preferences, Cloud, Backups</Typography>}
+              />
+            </MenuItem>
+          </Menu>
 
           {/* User Account / Sign In */}
           {currentUser ? (
