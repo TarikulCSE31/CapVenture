@@ -16,6 +16,7 @@ import {
   Alert,
   InputAdornment,
   Chip,
+  Paper,
 } from '@mui/material';
 import {
   Close,
@@ -52,6 +53,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [description, setDescription] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('Bank Transfer');
   const [reference, setReference] = useState<string>('');
+  const [expectedProfit, setExpectedProfit] = useState<string>('');
+  const [expectedProfitRate, setExpectedProfitRate] = useState<string>('');
+  const [targetDate, setTargetDate] = useState<string>('');
 
   useEffect(() => {
     if (editingTransaction) {
@@ -62,6 +66,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setDescription(editingTransaction.description || '');
       setPaymentMethod(editingTransaction.paymentMethod || 'Bank Transfer');
       setReference(editingTransaction.reference || '');
+      setExpectedProfit(editingTransaction.expectedProfit ? editingTransaction.expectedProfit.toString() : '');
+      setExpectedProfitRate(editingTransaction.expectedProfitRate ? editingTransaction.expectedProfitRate.toString() : '');
+      setTargetDate(editingTransaction.targetDate || '');
     } else {
       setType('INVESTMENT_OUT');
       setPartnerId(partners[0]?.id || '');
@@ -70,8 +77,38 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setDescription('');
       setPaymentMethod('Bank Transfer');
       setReference('');
+      setExpectedProfit('');
+      setExpectedProfitRate('');
+      setTargetDate('');
     }
   }, [editingTransaction, isOpen, partners]);
+
+  const handleExpectedProfitChange = (val: string) => {
+    setExpectedProfit(val);
+    const profitNum = parseFloat(val);
+    const principalNum = parseFloat(amount);
+    if (!isNaN(profitNum) && !isNaN(principalNum) && principalNum > 0) {
+      setExpectedProfitRate(((profitNum / principalNum) * 100).toFixed(1));
+    }
+  };
+
+  const handleExpectedProfitRateChange = (val: string) => {
+    setExpectedProfitRate(val);
+    const rateNum = parseFloat(val);
+    const principalNum = parseFloat(amount);
+    if (!isNaN(rateNum) && !isNaN(principalNum) && principalNum > 0) {
+      setExpectedProfit(((principalNum * rateNum) / 100).toFixed(2));
+    }
+  };
+
+  const handleAmountChange = (newAmount: string) => {
+    setAmount(newAmount);
+    const principalNum = parseFloat(newAmount);
+    const rateNum = parseFloat(expectedProfitRate);
+    if (!isNaN(principalNum) && !isNaN(rateNum) && principalNum > 0) {
+      setExpectedProfit(((principalNum * rateNum) / 100).toFixed(2));
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,6 +131,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         description: description.trim() || getDefaultDescription(type),
         paymentMethod,
         reference: reference.trim(),
+        expectedProfit: type === 'INVESTMENT_OUT' && expectedProfit ? parseFloat(expectedProfit) : undefined,
+        expectedProfitRate: type === 'INVESTMENT_OUT' && expectedProfitRate ? parseFloat(expectedProfitRate) : undefined,
+        targetDate: type === 'INVESTMENT_OUT' && targetDate ? targetDate : undefined,
       },
       editingTransaction?.id
     );
@@ -111,7 +151,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const addPresetAmount = (add: number) => {
     const current = parseFloat(amount) || 0;
-    setAmount((current + add).toString());
+    handleAmountChange((current + add).toString());
   };
 
   return (
@@ -192,7 +232,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 required
                 fullWidth
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => handleAmountChange(e.target.value)}
                 slotProps={{
                   input: {
                     startAdornment: <InputAdornment position="start">{currency.symbol}</InputAdornment>,
@@ -215,6 +255,85 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 ))}
               </Box>
             </Box>
+
+            {/* Expected Profit Option (When Disbursing Capital) */}
+            {type === 'INVESTMENT_OUT' && (
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  borderRadius: 2.5,
+                  bgcolor: (theme) =>
+                    theme.palette.mode === 'dark' ? 'rgba(46, 125, 50, 0.08)' : 'rgba(46, 125, 50, 0.04)',
+                  borderColor: (theme) =>
+                    theme.palette.mode === 'dark' ? 'rgba(46, 125, 50, 0.3)' : 'rgba(46, 125, 50, 0.25)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1.5,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TrendingUp fontSize="small" color="success" /> Expected Profit Target
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Forecast & ROI Tracking (Optional)
+                  </Typography>
+                </Box>
+
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      label="Expected Profit Amount"
+                      type="number"
+                      fullWidth
+                      size="small"
+                      placeholder="e.g. 1500"
+                      value={expectedProfit}
+                      onChange={(e) => handleExpectedProfitChange(e.target.value)}
+                      slotProps={{
+                        input: {
+                          startAdornment: <InputAdornment position="start">{currency.symbol}</InputAdornment>,
+                        },
+                        htmlInput: { min: '0', step: 'any' },
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      label="Expected Return Rate"
+                      type="number"
+                      fullWidth
+                      size="small"
+                      placeholder="e.g. 15"
+                      value={expectedProfitRate}
+                      onChange={(e) => handleExpectedProfitRateChange(e.target.value)}
+                      slotProps={{
+                        input: {
+                          endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                        },
+                        htmlInput: { min: '0', step: 'any' },
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12 }}>
+                    <TextField
+                      label="Target Payout / Maturity Date"
+                      type="date"
+                      fullWidth
+                      size="small"
+                      value={targetDate}
+                      onChange={(e) => setTargetDate(e.target.value)}
+                      slotProps={{
+                        inputLabel: { shrink: true },
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+              </Paper>
+            )}
 
             {/* Partner & Date Grid */}
             <Grid container spacing={2}>

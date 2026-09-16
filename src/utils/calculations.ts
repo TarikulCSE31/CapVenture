@@ -13,12 +13,16 @@ export function calculateSummary(transactions: Transaction[]): FinancialSummary 
   let totalInvested = 0;
   let totalPrincipalReturned = 0;
   let totalProfitRealized = 0;
+  let totalExpectedProfit = 0;
 
   for (const t of transactions) {
     const amt = Number(t.amount) || 0;
     switch (t.type) {
       case 'INVESTMENT_OUT':
         totalInvested += amt;
+        if (t.expectedProfit) {
+          totalExpectedProfit += Number(t.expectedProfit) || 0;
+        }
         break;
       case 'PRINCIPAL_RETURN':
         totalPrincipalReturned += amt;
@@ -44,6 +48,7 @@ export function calculateSummary(transactions: Transaction[]): FinancialSummary 
     totalPrincipalReturned,
     activeCapital,
     totalProfitRealized,
+    totalExpectedProfit,
     netCashFlow,
     roiPercentage,
     recoveryPercentage,

@@ -235,13 +235,16 @@ export function importBackupJson(jsonString: string): { success: boolean; error?
 export function exportToCsv(transactions: Transaction[], partners: Partner[]): string {
   const partnerMap = new Map(partners.map((p) => [p.id, p.name]));
   
-  const headers = ['ID', 'Date', 'Partner', 'Type', 'Amount', 'Description', 'Payment Method', 'Reference'];
+  const headers = ['ID', 'Date', 'Partner', 'Type', 'Amount', 'Expected Profit', 'Expected Return %', 'Target Date', 'Description', 'Payment Method', 'Reference'];
   const rows = transactions.map((t) => [
     `"${t.id}"`,
     `"${t.date}"`,
     `"${partnerMap.get(t.partnerId) || 'Unknown'}"`,
     `"${t.type}"`,
     t.amount,
+    t.expectedProfit !== undefined ? t.expectedProfit : '',
+    t.expectedProfitRate !== undefined ? `${t.expectedProfitRate}%` : '',
+    `"${t.targetDate || ''}"`,
     `"${(t.description || '').replace(/"/g, '""')}"`,
     `"${(t.paymentMethod || '').replace(/"/g, '""')}"`,
     `"${(t.reference || '').replace(/"/g, '""')}"`,

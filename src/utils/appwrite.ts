@@ -236,6 +236,9 @@ export async function fetchTransactionsFromAppwrite(config: AppwriteConfig): Pro
     description: doc.description || '',
     paymentMethod: doc.paymentMethod || '',
     reference: doc.reference || '',
+    expectedProfit: doc.expectedProfit !== undefined && doc.expectedProfit !== null ? Number(doc.expectedProfit) : undefined,
+    expectedProfitRate: doc.expectedProfitRate !== undefined && doc.expectedProfitRate !== null ? Number(doc.expectedProfitRate) : undefined,
+    targetDate: doc.targetDate || undefined,
     createdAt: doc.$createdAt || new Date().toISOString(),
   }));
 }
@@ -245,7 +248,7 @@ export async function fetchTransactionsFromAppwrite(config: AppwriteConfig): Pro
  */
 export async function saveTransactionToAppwrite(config: AppwriteConfig, transaction: Transaction): Promise<void> {
   const databases = getDatabases(config);
-  const payload = {
+  const payload: any = {
     partnerId: transaction.partnerId,
     date: transaction.date,
     amount: Number(transaction.amount),
@@ -253,6 +256,9 @@ export async function saveTransactionToAppwrite(config: AppwriteConfig, transact
     description: transaction.description || '',
     paymentMethod: transaction.paymentMethod || '',
     reference: transaction.reference || '',
+    expectedProfit: transaction.expectedProfit ? Number(transaction.expectedProfit) : null,
+    expectedProfitRate: transaction.expectedProfitRate ? Number(transaction.expectedProfitRate) : null,
+    targetDate: transaction.targetDate || null,
   };
 
   try {

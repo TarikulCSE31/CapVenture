@@ -119,8 +119,10 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ summary, currency }) => {
             </Box>
 
             <Box sx={{ mt: 2.5, pt: 1.5, borderTop: `1px solid ${theme.palette.divider}`, display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="caption" color="text.secondary">Profit Type</Typography>
-              <Typography variant="caption" color="success.main" sx={{ fontWeight: 600 }}>Pure Yield</Typography>
+              <Typography variant="caption" color="text.secondary">Expected Target</Typography>
+              <Typography variant="caption" color="success.main" sx={{ fontWeight: 600 }}>
+                {summary.totalExpectedProfit > 0 ? `+${formatCurrency(summary.totalExpectedProfit, currency)}` : 'Pure Yield'}
+              </Typography>
             </Box>
           </CardContent>
         </Card>

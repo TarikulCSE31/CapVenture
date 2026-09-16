@@ -210,16 +210,21 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
     let invested = 0;
     let returned = 0;
     let profit = 0;
+    let expectedProfit = 0;
     for (const t of filtered) {
-      if (t.type === 'INVESTMENT_OUT') invested += t.amount;
-      else if (t.type === 'PRINCIPAL_RETURN') returned += t.amount;
-      else if (t.type === 'PROFIT_PAYOUT') profit += t.amount;
-      else if (t.type === 'REINVEST') {
+      if (t.type === 'INVESTMENT_OUT') {
+        invested += t.amount;
+        if (t.expectedProfit) expectedProfit += t.expectedProfit;
+      } else if (t.type === 'PRINCIPAL_RETURN') {
+        returned += t.amount;
+      } else if (t.type === 'PROFIT_PAYOUT') {
+        profit += t.amount;
+      } else if (t.type === 'REINVEST') {
         invested += t.amount;
         profit += t.amount;
       }
     }
-    return { invested, returned, profit };
+    return { invested, returned, profit, expectedProfit };
   }, [filtered]);
 
   // Trigger Bulk Deletion
@@ -685,6 +690,11 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
                           </Typography>
                         )}
                       </Box>
+                      {t.targetDate && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.6875rem', fontStyle: 'italic', mt: 0.2 }}>
+                          Target Return: {t.targetDate}
+                        </Typography>
+                      )}
                     </TableCell>
 
                     {/* Amount */}
@@ -699,6 +709,22 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
                         {isProfit ? '+' : ''}
                         {formatCurrency(t.amount, currency)}
                       </Typography>
+                      {t.type === 'INVESTMENT_OUT' && t.expectedProfit !== undefined && t.expectedProfit > 0 && (
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            display: 'block',
+                            color: 'success.main',
+                            fontWeight: 600,
+                            fontSize: '0.6875rem',
+                            lineHeight: 1.2,
+                            mt: 0.3,
+                          }}
+                        >
+                          Target: +{formatCurrency(t.expectedProfit, currency)}
+                          {t.expectedProfitRate ? ` (${t.expectedProfitRate}%)` : ''}
+                        </Typography>
+                      )}
                     </TableCell>
 
                     {/* Running Principal */}
@@ -759,6 +785,11 @@ export const LedgerTable: React.FC<LedgerTableProps> = ({
           <Typography variant="caption" color="text.secondary">
             Profit: <strong style={{ color: theme.palette.success.main }}>{formatCurrency(viewTotals.profit, currency)}</strong>
           </Typography>
+          {viewTotals.expectedProfit > 0 && (
+            <Typography variant="caption" color="text.secondary">
+              Expected Profit: <strong style={{ color: theme.palette.success.main }}>+{formatCurrency(viewTotals.expectedProfit, currency)}</strong>
+            </Typography>
+          )}
         </Box>
       </Box>
 

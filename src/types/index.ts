@@ -23,6 +23,9 @@ export interface Transaction {
   description: string;
   paymentMethod?: string;
   reference?: string;
+  expectedProfit?: number; // Expected profit in currency
+  expectedProfitRate?: number; // Expected return rate in %
+  targetDate?: string; // Target payout or maturity date
   createdAt: string;
 }
 
@@ -37,6 +40,7 @@ export interface FinancialSummary {
   totalPrincipalReturned: number;
   activeCapital: number; // Principal currently with partner
   totalProfitRealized: number;
+  totalExpectedProfit: number; // Expected total profit from capital advances
   netCashFlow: number; // (Returned + Profit) - Invested
   roiPercentage: number; // (Total Profit / Total Invested) * 100
   recoveryPercentage: number; // (Returned + Profit) / Invested * 100
